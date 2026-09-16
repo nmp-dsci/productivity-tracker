@@ -3,6 +3,8 @@ import { delta, fmt, usd } from '../format';
 import { Eyebrow, Head, Status, useFetch } from '../ui';
 
 const money = new Set(['cost_usd']);
+// Session counts stay in the strips below; the top line is about work and output.
+const HIDE = new Set(['claude_sessions', 'automated_sessions', 'codex_sessions']);
 const show = (key: string, v: number) => (money.has(key) ? usd(v) : fmt(v));
 
 /** Rolling last 7 days vs the 7 before: the stat strip of every metric with a
@@ -16,7 +18,7 @@ export default function Insights() {
       {data && (
         <>
           <div className="stats">
-            {data.metrics.map((m) => {
+            {data.metrics.filter((m) => !HIDE.has(m.key)).map((m) => {
               const d = delta(m.value, m.prior);
               return (
                 <div key={m.key} title={m.note}>
