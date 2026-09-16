@@ -6,10 +6,10 @@ import Overview from './views/Overview';
 import Projects from './views/Projects';
 import ShipLog from './views/ShipLog';
 import Trends from './views/Trends';
-import Weekly from './views/Weekly';
+import Insights from './views/Insights';
 import { Tag, useFetch } from './ui';
 
-const VIEWS = ['trends', 'overview', 'agents', 'github', 'projects', 'shiplog', 'weekly'] as const;
+const VIEWS = ['trends', 'overview', 'agents', 'github', 'projects', 'shiplog'] as const;
 type View = (typeof VIEWS)[number];
 
 const readPath = (): View => {
@@ -51,13 +51,12 @@ export default function App() {
         </div>
       </header>
       <main>
-        {view === 'trends' && <Trends onPickDay={(d) => { setWeek(d); go('overview'); }} />}
+        {view === 'trends' && <><Insights /><Trends onPickDay={(d) => { setWeek(d); go('overview'); }} /></>}
         {view === 'overview' && <Overview week={week} setWeek={setWeek} />}
         {view === 'agents' && <Agents />}
         {view === 'github' && <GitHubView />}
         {view === 'projects' && <Projects />}
         {view === 'shiplog' && <ShipLog />}
-        {view === 'weekly' && <Weekly week={week} />}
       </main>
       <footer><div className="in"><span>productivity-tracker · events → S3 · DuckDB rollups · FastAPI · React</span><span>github.com/nmp-dsci/productivity-tracker</span><span>aggregates only in demo mode; raw prompts never leave the laptop</span></div></footer>
     </>

@@ -86,6 +86,11 @@ def create_app(cfg: Settings | None = None) -> FastAPI:
         with db() as con:
             return out(q.trends(con, grain, window, today()))
 
+    @app.get("/api/insights")
+    def insights() -> Any:
+        with db() as con:
+            return out(q.insights(con, today(), cfg.data_dir / "narratives"))
+
     @app.get("/api/overview")
     def overview(week: str | None = None) -> Any:
         d = date.fromisoformat(week) if week else today()

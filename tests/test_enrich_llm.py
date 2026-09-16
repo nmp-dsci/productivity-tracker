@@ -58,4 +58,8 @@ def test_narrative_saves_markdown(settings: Settings, state: State) -> None:
     out = narrative.run(settings, week="2026-09-10", complete=fake)
     path = settings.data_dir / "narratives" / "2026-09-07.md"
     assert path.exists() and "review page" in path.read_text() and "wrote" in out
-    assert '"commits": 2' in seen["user"]
+    assert '"key": "commits"' in seen["user"] and '"value": 2' in seen["user"]
+    # rolling default writes rolling-<today>.md and the freshness guard skips a rerun
+    rolling = narrative.run(settings, complete=fake)
+    assert "rolling-" in rolling
+    assert narrative.run(settings, complete=fake, max_age_hours=24).endswith("fresh; skipped")

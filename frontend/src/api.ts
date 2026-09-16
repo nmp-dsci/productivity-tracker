@@ -8,8 +8,13 @@ export type TrendRow = {
 export type Trends = { grain: 'day' | 'week'; window: number; start: string; end: string; rows: TrendRow[] };
 
 export type Ship = { ts: string; day: string; source: string; kind: string; project: string | null; repo?: string | null; branch?: string | null; title: string | null; status: string | null; url?: string | null; number?: number | null };
+export type Metric = { key: string; label: string; note: string; value: number; prior: number; growth: number | null };
+export type Insights = {
+  start: string; end: string; prior_start: string; prior_end: string; kpis: Record<string, number>; prior: Record<string, number>;
+  metrics: Metric[]; projects: Overview['projects']; split: Overview['split']; shiplog: Ship[]; narrative: string | null; narrative_end: string | null;
+};
 export type Overview = {
-  week_start: string; week_end: string; kpis: Record<string, number>; prior: Record<string, number>;
+  week_start: string; week_end: string; kpis: Record<string, number>; prior: Record<string, number>; metrics: Metric[];
   projects: { project: string; tok_out: number; cost_usd: number; commits: number; prs: number; pages: number; deploys: number }[];
   split: { cls: string; tok_out: number; cost_usd: number }[]; shiplog: Ship[];
 };
@@ -44,6 +49,7 @@ async function get<T>(path: string): Promise<T> {
 export const api = {
   health: () => get<Health>('/api/health'),
   trends: (grain: 'day' | 'week', window: number) => get<Trends>(`/api/trends?grain=${grain}&window=${window}`),
+  insights: () => get<Insights>('/api/insights'),
   overview: (week?: string) => get<Overview>(`/api/overview${week ? `?week=${week}` : ''}`),
   agents: (days: number) => get<Agents>(`/api/agents?days=${days}`),
   github: (days: number) => get<GitHub>(`/api/github?days=${days}`),

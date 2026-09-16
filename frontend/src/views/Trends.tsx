@@ -10,7 +10,7 @@ export default function Trends({ onPickDay }: { onPickDay: (d: string) => void }
   const [hover, setHover] = useState<HoverInfo>(null);
   return (
     <section id="trends">
-      <Head eyebrow="Landing view" title="Trends" lede="One strip per metric. Colour is volume, red → green, log-scaled per row; the sparkline is the last 26 weeks; ▲▼ is week-on-week and last-4-weeks vs prior-4.">
+      <Head eyebrow="Over time" title="Trends" lede="One strip per metric. Colour is volume, red → green, log-scaled per row; the sparkline is the last 26 weeks; ▲▼ is week-on-week and last-4-weeks vs prior-4.">
         <Toggle value={grain} options={[['day', 'Day · rolling 180'], ['week', 'Week · rolling 26']]} onChange={setGrain} />
       </Head>
       <Status loading={loading} error={error} />

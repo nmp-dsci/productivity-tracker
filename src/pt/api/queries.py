@@ -138,17 +138,18 @@ def trends(con: duckdb.DuckDBPyConnection, grain: str, window: int, today: date)
     }
 
 
-def overview(con: duckdb.DuckDBPyConnection, week_start: date) -> dict[str, Any]:
-    prev = week_start - timedelta(days=7)
-    end = week_start + timedelta(days=6)
+def kpis(con: duckdb.DuckDBPyConnection, s: date, e: date) -> dict[str, float]:
+    return {key: sum(_series(con, key, s, e).values()) for key, _, _ in METRICS}
 
-    def kpis(s: date, e: date) -> dict[str, float]:
-        out: dict[str, float] = {}
-        for key, _, _ in METRICS:
-            out[key] = sum(_series(con, key, s, e).values())
-        return out
 
-    this, last = kpis(week_start, end), kpis(prev, week_start - timedelta(days=1))
+def window_summary(con: duckdb.DuckDBPyConnection, start: date, end: date) -> dict[str, Any]:
+    """KPIs for start..end against the same-length window before it, plus the
+    per-project table, class split and ship log. Overview (calendar week) and
+    Insights (rolling 7 days) are both this."""
+    days = (end - start).days + 1
+    p_end = start - timedelta(days=1)
+    p_start = p_end - timedelta(days=days - 1)
+    this, last = kpis(con, start, end), kpis(con, p_start, p_end)
     projects = _rows(
         con,
         """
@@ -161,29 +162,55 @@ def overview(con: duckdb.DuckDBPyConnection, week_start: date) -> dict[str, Any]
                sum(CASE WHEN (source='aws' AND kind='apprunner_deploy') OR (source='github' AND kind='deployment_status') THEN n ELSE 0 END) AS deploys
         FROM daily WHERE day BETWEEN ? AND ? AND project IS NOT NULL
         GROUP BY 1 HAVING tok_out > 0 OR commits > 0 ORDER BY tok_out DESC LIMIT 12""",
-        [week_start, end],
+        [start, end],
     )
     split = _rows(
         con,
         """
         SELECT cls, sum(tok_out) AS tok_out, sum(cost_usd) AS cost_usd FROM daily
         WHERE day BETWEEN ? AND ? AND source IN ('claude_code','codex') GROUP BY 1 ORDER BY 2 DESC""",
-        [week_start, end],
+        [start, end],
     )
     ship = _rows(
         con,
         "SELECT ts, day, source, kind, project, title, status, url FROM shiplog WHERE day BETWEEN ? AND ? ORDER BY ts DESC LIMIT 40",
-        [week_start, end],
+        [start, end],
     )
+    metrics = []
+    for key, label, note in METRICS:
+        a, b = this[key], last[key]
+        g = None if b <= 0 else round((a - b) / b * 100, 1)
+        metrics.append(
+            {"key": key, "label": label, "note": note, "value": a, "prior": b, "growth": g}
+        )
     return {
-        "week_start": week_start.isoformat(),
-        "week_end": end.isoformat(),
+        "start": start.isoformat(),
+        "end": end.isoformat(),
+        "prior_start": p_start.isoformat(),
+        "prior_end": p_end.isoformat(),
         "kpis": this,
         "prior": last,
+        "metrics": metrics,
         "projects": projects,
         "split": split,
         "shiplog": ship,
     }
+
+
+def overview(con: duckdb.DuckDBPyConnection, week_start: date) -> dict[str, Any]:
+    end = week_start + timedelta(days=6)
+    out = window_summary(con, week_start, end)
+    out["week_start"], out["week_end"] = week_start.isoformat(), end.isoformat()
+    return out
+
+
+def insights(con: duckdb.DuckDBPyConnection, today: date, narratives_dir: Path) -> dict[str, Any]:
+    """Rolling last 7 days vs the 7 before, plus the latest rolling narrative."""
+    out = window_summary(con, today - timedelta(days=6), today)
+    latest = sorted(narratives_dir.glob("rolling-*.md")) if narratives_dir.exists() else []
+    out["narrative"] = latest[-1].read_text() if latest else None
+    out["narrative_end"] = latest[-1].stem.removeprefix("rolling-") if latest else None
+    return out
 
 
 def agents(con: duckdb.DuckDBPyConnection, start: date, end: date) -> dict[str, Any]:

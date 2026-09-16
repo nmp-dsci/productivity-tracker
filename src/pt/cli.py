@@ -145,12 +145,17 @@ def tag(limit: int = typer.Option(200, help="Max sessions to tag this run.")) ->
 
 @app.command()
 def weekly(
-    week: str | None = typer.Option(None, help="ISO date inside the week; default: last week."),
+    week: str | None = typer.Option(
+        None, help="ISO date inside a calendar week; default: rolling last 7 days."
+    ),
+    max_age_hours: float | None = typer.Option(
+        None, help="Skip when the narrative is newer than this (the launchd job passes 24)."
+    ),
 ) -> None:
-    """Draft the weekly narrative from the rollups."""
+    """Draft the narrative (rolling 7 days, or a calendar week) from the rollups."""
     from pt.enrich.narrative import run
 
-    typer.echo(run(settings(), week=week))
+    typer.echo(run(settings(), week=week, max_age_hours=max_age_hours))
 
 
 if __name__ == "__main__":

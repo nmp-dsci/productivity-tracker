@@ -32,6 +32,11 @@ def test_read_routes(settings: Settings, state: State) -> None:
     assert len(t["rows"][0]["cells"]) == 30
     w = client.get("/api/trends?grain=week&window=26").json()
     assert len(w["rows"][0]["cells"]) == 26 and "growth" in w["rows"][0]
+    ins = client.get("/api/insights").json()
+    assert [m["key"] for m in ins["metrics"]][:2] == [
+        "claude_sessions",
+        "automated_sessions",
+    ] and "narrative" in ins
     ov = client.get("/api/overview?week=2026-09-10").json()
     assert ov["week_start"] == "2026-09-07" and ov["kpis"]["commits"] == 2
     ag = client.get("/api/agents?days=365").json()

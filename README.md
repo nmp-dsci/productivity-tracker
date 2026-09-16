@@ -77,7 +77,8 @@ when `CLAUDE_CODE_OAUTH_TOKEN` is set (via the Claude Agent SDK), otherwise
 
 ```bash
 uv run pt tag           # tier-2 classifier for sessions tier 1 left unknown (metadata only)
-uv run pt weekly        # weekly narrative → data/narratives/<week>.md → /api/weekly
+uv run pt weekly        # rolling 7-day narrative → data/narratives/rolling-<date>.md → home page (launchd refreshes daily)
+uv run pt weekly --week 2026-09-08   # a calendar-week review → /api/weekly
 ```
 
 ## Configuration
