@@ -28,7 +28,7 @@ def test_read_routes(settings: Settings, state: State) -> None:
     client = TestClient(create_app(cfg))
     assert client.get("/api/health").json()["ok"] is True
     t = client.get("/api/trends?grain=day&window=30").json()
-    assert [r["key"] for r in t["rows"]][:3] == ["claude_sessions", "subagent_sessions", "prompts"]
+    assert [r["key"] for r in t["rows"]][:3] == ["claude_sessions", "automated_sessions", "prompts"]
     assert len(t["rows"][0]["cells"]) == 30
     w = client.get("/api/trends?grain=week&window=26").json()
     assert len(w["rows"][0]["cells"]) == 26 and "growth" in w["rows"][0]

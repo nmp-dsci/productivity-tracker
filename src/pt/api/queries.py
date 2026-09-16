@@ -13,8 +13,8 @@ import duckdb
 
 METRICS: list[tuple[str, str, str]] = [
     # key, label, note
-    ("claude_sessions", "Claude Code sessions", "top-level sessions"),
-    ("subagent_sessions", "Subagent sessions", "spawned by agents and eval loops"),
+    ("claude_sessions", "Sessions started", "interactive Claude Code, by first prompt"),
+    ("automated_sessions", "Automated sessions", "subagents, eval loops, claude -p"),
     ("prompts", "Prompts sent", "human turns"),
     ("codex_sessions", "Codex sessions", "session files"),
     ("tokens_out", "Output tokens", "Claude Code + Codex"),
@@ -27,9 +27,10 @@ METRICS: list[tuple[str, str, str]] = [
 ]
 
 _METRIC_SQL: dict[str, str] = {
-    # Sessions you started, not the subagents an eval loop fans out.
-    "claude_sessions": "SELECT day, count(*) v FROM sessions WHERE source='claude_code' AND subagent_msgs < greatest(messages, 1) GROUP BY 1",
-    "subagent_sessions": "SELECT day, count(*) v FROM sessions WHERE source='claude_code' AND subagent_msgs >= greatest(messages, 1) GROUP BY 1",
+    # Interactive = at least one human prompt in history.jsonl. Automated =
+    # subagents and the `claude -p` runs an eval loop fans out (no prompt).
+    "claude_sessions": "SELECT day, count(*) v FROM sessions WHERE source='claude_code' AND prompts > 0 GROUP BY 1",
+    "automated_sessions": "SELECT day, count(*) v FROM sessions WHERE source='claude_code' AND prompts = 0 GROUP BY 1",
     "codex_sessions": "SELECT day, count(*) v FROM sessions WHERE source='codex' GROUP BY 1",
     "prompts": "SELECT day, sum(n) v FROM daily WHERE source='claude_code' AND kind='prompt' GROUP BY 1",
     "tokens_out": "SELECT day, sum(tok_out) v FROM daily WHERE source IN ('claude_code','codex') GROUP BY 1",
