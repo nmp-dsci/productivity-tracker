@@ -1,6 +1,6 @@
 # Plan: productivity-tracker v1
 
-Status: reviewed 2026-09-16 — D-01/02/03/05/06 decided, D-04 open (see Decisions)
+Status: approved 2026-09-16 — all decisions made, build in progress
 Date: 2026-09-16
 
 ## Goal
@@ -115,13 +115,12 @@ ecr_push, daily_cost. `lavish`: page_created, page_updated. `evals`: run.
 | D-01 | Storage | A — S3 JSONL + DuckDB/parquet; no database |
 | D-02 | Public demo | aggregates only; demo API never returns session ids, paths, branch names |
 | D-03 | GitHub capture | per-repo webhooks via `pt github install-hooks` + REST backfill |
-| D-04 | Stack | **open** — Python+FastAPI (copy-able infra) vs TS end-to-end (portfolio story, shared types) |
+| D-04 | Stack | Python 3.12 + FastAPI + DuckDB backend; Vite + React + TS frontend |
 | D-05 | v1 sources | S-01 … S-08 (eval runs and no-mistakes promoted into P1); S-09, S-10 deferred |
 | D-06 | Live hooks | deferred to P7 |
 
 ## Risks and Open Questions
 
-- D-04 stack: decided by whether this is also meant as a TS/Node-in-AWS portfolio piece.
 - Claude Code hooks add live events but carry no token usage; JSONL remains
   the source of truth for tokens.
 - App Runner can run >1 instance; the ingest path must be append-only (S3

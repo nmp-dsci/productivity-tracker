@@ -250,7 +250,7 @@
   <div class="in">
     <nav><a href="#trends">Trends</a><a href="#state">State</a><a href="#arch">Architecture</a><a href="#sources">Sources</a><a href="#app">App</a><a href="#design">Design</a><a href="#decisions">Decide</a></nav>
     <div class="brand">productivity<sup>®</sup>tracker</div>
-    <div class="right"><span class="tag">nmp-dsci · init</span><span class="tag decide">plan v1 · draft</span><button class="theme-btn" id="theme-btn" type="button" title="Cycle theme: system → dark → light" onclick="cycleTheme()">theme: system</button></div>
+    <div class="right"><span class="tag">nmp-dsci · init</span><span class="tag yes">plan v1 · building</span><button class="theme-btn" id="theme-btn" type="button" title="Cycle theme: system → dark → light" onclick="cycleTheme()">theme: system</button></div>
   </div>
 </header>
 
@@ -653,9 +653,9 @@
 <!-- ───────────── DECISIONS ───────────── -->
 <section id="decisions" style="background:var(--paper);border-top:1px solid var(--line-2);border-bottom:1px solid var(--line-2)">
   <div class="head">
-    <div class="eyebrow pill">Decided 2026-09-16 · one open</div>
+    <div class="eyebrow pill">All decided 2026-09-16 · build started</div>
     <h2>Decisions</h2>
-    <p class="lede">Five of six are settled and now bind the plan. D-04 (stack) is still open — see the sharpened comparison below and queue your answer.</p>
+    <p class="lede">All six settled; the plan below is what is being built.</p>
   </div>
   <div class="tbl" id="decision-log" style="margin-bottom:24px">
     <table>
@@ -664,7 +664,7 @@
         <tr><td class="id">D-01</td><td>Storage engine</td><td><span class="tag yes">A · S3 JSONL + DuckDB/parquet</span></td><td>P2 builds the S3 event store + DuckDB rollups; no database anywhere; demo image bakes parquet.</td></tr>
         <tr><td class="id">D-02</td><td>Public demo exposure</td><td><span class="tag yes">aggregates only</span></td><td>Demo mode strips session ids, file paths, branch names; a test asserts the demo API never returns them.</td></tr>
         <tr><td class="id">D-03</td><td>GitHub capture</td><td><span class="tag yes">per-repo webhooks, scripted + backfill</span></td><td>P4 ships <code>pt github install-hooks</code> and <code>backfill</code>; GitHub App deferred.</td></tr>
-        <tr><td class="id">D-04</td><td>Stack</td><td><span class="tag decide">open</span></td><td>See below.</td></tr>
+        <tr><td class="id">D-04</td><td>Stack</td><td><span class="tag yes">Python + FastAPI + DuckDB · React/TS</span></td><td>Infra copied from transcript-rag-agent; frontend hand-styled from DESIGN.md.</td></tr>
         <tr><td class="id">D-05</td><td>Sources in v1</td><td><span class="tag yes">S-01 … S-08</span></td><td>Eval runs (S-07) and no-mistakes gates (S-08) move from v1.1 into P1. S-09 Databricks and S-10 Calendar deferred; S-11 comes free.</td></tr>
         <tr><td class="id">D-06</td><td>Claude Code live hooks</td><td><span class="tag yes">defer to P7</span></td><td>5-minute collector is the only agent path in v1.</td></tr>
       </tbody>
