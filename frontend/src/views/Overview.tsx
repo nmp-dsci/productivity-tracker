@@ -3,7 +3,7 @@ import { SERIES, delta, fmt, shortDate, usd } from '../format';
 import { Bar, Eyebrow, Head, Status, useFetch } from '../ui';
 
 const KPIS: [string, string, (n: number) => string][] = [
-  ['cost_usd', 'agent $', usd], ['tokens_out', 'out tokens', fmt], ['claude_sessions', 'sessions', fmt], ['automated_sessions', 'automated', fmt], ['prompts', 'prompts', fmt],
+  ['cost_usd', 'agent $', usd], ['tokens_out', 'out tokens', fmt], ['tokens_in', 'in tokens', fmt], ['claude_sessions', 'sessions', fmt], ['automated_sessions', 'automated', fmt], ['prompts', 'prompts', fmt],
   ['commits', 'commits', fmt], ['prs', 'PRs merged', fmt], ['deploys', 'deploys', fmt], ['lavish', 'lavish pages', fmt], ['projects', 'projects', fmt],
 ];
 
