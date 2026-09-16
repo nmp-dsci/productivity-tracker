@@ -208,6 +208,13 @@
   .hm-row .grid { padding: 12px 16px; overflow-x: auto; }
   .hm-row svg { display: block; }
   .hm-row svg text { font-family: var(--sans); font-size: 9px; fill: var(--muted); }
+  .hm-row .meta { position: relative; overflow: hidden; }
+  .hm-row .meta > * { position: relative; }
+  .hm-row .meta .spark { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .hm-row .growth { display: flex; gap: 12px; margin-top: 6px; }
+  .hm-row .g { font-family: var(--cond); font-weight: 700; font-size: 14px; letter-spacing: .04em; display: inline-flex; align-items: baseline; gap: 5px; }
+  .hm-row .g small { font-family: var(--sans); font-weight: 400; font-size: 10px; color: var(--muted); letter-spacing: 0; }
+  .hm-row .g.up { color: #6E8A2E; } .hm-row .g.down { color: #B4382E; } .hm-row .g.flat { color: var(--muted); }
   .hm-legend { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); justify-content: flex-end; margin-top: 10px; }
   .hm-legend i { width: 11px; height: 11px; display: inline-block; background: var(--ink); }
   @media (max-width: 860px) { .hm-row { grid-template-columns: 1fr; } .hm-row .meta { border-right: 0; border-bottom: 1px solid var(--line-2); } }
@@ -292,11 +299,11 @@
   <div class="head">
     <div class="eyebrow">Primary view · real data from this laptop</div>
     <h2>Trends</h2>
-    <p class="lede">The contributions-tracker lens, one row per metric. X axis is the last 365 days (7 × 53, like GitHub) or the last 52 weeks; intensity is volume. This is the first thing the app shows.</p>
+    <p class="lede">The contributions-tracker lens, one row per metric. X axis is a single strip — the last 365 days or the last 52 weeks; colour is volume, red → green; the sparkline behind each total is the weekly shape. This is the first thing the app shows.</p>
     <div class="hm-toggle" role="tablist"><button type="button" class="on" data-grain="day" onclick="hmSet('day')">Day · 365</button><button type="button" data-grain="week" onclick="hmSet('week')">Week · 52</button></div>
   </div>
   <div class="hm-rows" id="hm-rows"></div>
-  <div class="hm-legend">less <i style="opacity:.12"></i><i style="opacity:.3"></i><i style="opacity:.55"></i><i style="opacity:.8"></i><i></i> more · intensity is log-scaled per row</div>
+  <div class="hm-legend">low <i style="background:#B4382E"></i><i style="background:#C9633A"></i><i style="background:#C9A24A"></i><i style="background:#8F9A3C"></i><i style="background:#6E8A2E"></i> high · none = transparent (faint track shows the span) · log-scaled per row · ▲▼ = this week vs last (wow) and last 4 weeks vs prior 4 (4w)</div>
   <p class="small muted center" style="margin-top:14px;max-width:60rem">Measured 2026-09-16: sessions = Claude Code + Codex session files by first timestamp (eval loops spawn thousands of subagent sessions on some days, hence the spikes); tokens = output tokens from <code>usage</code> (present in JSONL only since 2026-08-13); lavish = page mtime; commits / projects = <code>git log --all</code> across 21 portfolio repos; PRs = merged, via <code>gh search prs</code>. The app will compute exactly these rows from the event store.</p>
 </section>
 
@@ -603,7 +610,7 @@
       <h3>Ink for totals, foil for series</h3>
       <p style="font-size:13px">Single-series bars are ink. Multi-series (per model, per project) use magenta / gold / green / cocoa in that order. Wine is a surface, never a series colour. Diagrams: ink boxes, wine for stores, magenta for push edges.</p>
     </div>
-    <div class="card" id="ds-heatmap"><div class="eyebrow">Heatmaps</div><h3>11px cells, 2px gutters, ink at 5 opacities</h3><p style="font-size:13px">Contributions-tracker grammar: 7 × 53 for days, 1 × 52 for weeks, month labels above, empty cells as hairline outlines. Intensity is log-scaled per row so a 7,000-session eval day doesn't blank out the rest. One colour (ink) — the row label carries the metric, not the hue.</p></div>
+    <div class="card" id="ds-heatmap"><div class="eyebrow">Heatmaps</div><h3>Single strip, red → green, nulls transparent</h3><p style="font-size:13px">One row per metric, one strip per row: 365 × (2px + 1px) for days, 52 × (11px + 2px) for weeks, month labels above. Colour ramp <code>#B4382E → #C9633A → #C9A24A → #8F9A3C → #6E8A2E</code> (low → high), log-scaled per row; empty cells are hairline outlines. The meta cell carries total, a faint weekly sparkline behind it, and ▲▼ growth (week-on-week and 4w vs prior 4w).</p></div>
     <div class="card" id="ds-layout">
       <div class="eyebrow">Layout</div>
       <h3>Centred heads, 1400px max, 72px section rhythm</h3>
@@ -783,45 +790,57 @@
     ['prs','PRs merged','github.com/nmp-dsci'],
     ['projects','Projects active','repos with a commit that day'],
   ];
-  const fmt=n=>n>=1e6?(n/1e6).toFixed(1)+'M':n>=1e3?(n/1e3).toFixed(1)+'k':String(n);
+  const fmt=n=>n>=1e6?(n/1e6).toFixed(1)+'M':n>=1e3?(n/1e3).toFixed(1)+'k':String(Math.round(n));
+  const pct=(a,b)=>b>0?Math.round((a-b)/b*100):(a>0?Infinity:0);
   const start=new Date(D.start+'T00:00:00'), end=new Date(D.end+'T00:00:00');
   const days=[]; for(let d=new Date(start); d<=end; d.setDate(d.getDate()+1)) days.push(d.toISOString().slice(0,10));
-  // align to weeks starting Monday
   const dow=d=>{const x=new Date(d+'T00:00:00').getDay(); return (x+6)%7;};
   const lead=dow(days[0]); const cols=Math.ceil((lead+days.length)/7);
   const MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  function level(v,max){ if(!v) return 0; const r=Math.log1p(v)/Math.log1p(max); return r<.25?1:r<.5?2:r<.75?3:r<.95?4:5; }
-  const OP=[0,.12,.3,.55,.8,1];
-  function weekly(series){ const w={}; days.forEach((d,i)=>{ const k=Math.floor((lead+i)/7); w[k]=(w[k]||0)+(series[d]||0); }); return w; }
-  function dayGrid(key, series){
-    const C=11,G=2,top=14,left=0, W=cols*(C+G), H=top+7*(C+G);
-    const max=Math.max(1,...Object.values(series));
-    let out=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;max-width:1100px" aria-label="${key} by day">`;
+  // red → green, low → high; null stays transparent
+  const RAMP=['#B4382E','#C9633A','#C9A24A','#8F9A3C','#6E8A2E'];
+  function level(v,max){ if(!v) return 0; const r=Math.log1p(v)/Math.log1p(max); return r<.2?1:r<.4?2:r<.6?3:r<.8?4:5; }
+  function weekly(series){ const w=new Array(cols).fill(0); days.forEach((d,i)=>{ w[Math.floor((lead+i)/7)]+=(series[d]||0); }); return w; }
+  function strip(key, cells, labelAt, C, G){
+    const Hc=C<6?40:28, top=14, W=cells.length*(C+G), H=top+Hc;
+    const max=Math.max(1,...cells.map(c=>c.v));
+    let out=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;max-width:1100px" preserveAspectRatio="none" aria-label="${key}">`;
+    out+=`<rect x="0" y="${top}" width="${W-G}" height="${Hc}" fill="var(--ink)" fill-opacity=".04"/>`;
     let lastM=-1;
-    days.forEach((d,i)=>{ const idx=lead+i, c=Math.floor(idx/7), r=idx%7; const m=+d.slice(5,7)-1;
-      if(r===0&&m!==lastM){ out+=`<text x="${c*(C+G)}" y="10">${MONTHS[m]}</text>`; lastM=m; }
-      const v=series[d]||0, l=level(v,max);
-      out+=`<rect x="${c*(C+G)}" y="${top+r*(C+G)}" width="${C}" height="${C}" fill="var(--ink)" fill-opacity="${l?OP[l]:0}" stroke="var(--line-2)" stroke-width="${l?0:1}"><title>${d} · ${fmt(v)}</title></rect>`; });
+    cells.forEach((c,i)=>{ const m=+c.d.slice(5,7)-1;
+      if(m!==lastM && labelAt(i)){ out+=`<text x="${i*(C+G)}" y="10" style="font-size:${C<6?9:9}px" textLength="18" lengthAdjust="spacingAndGlyphs">${MONTHS[m]}</text>`; lastM=m; }
+      const l=level(c.v,max);
+      out+=`<rect x="${i*(C+G)}" y="${top}" width="${C}" height="${Hc}" fill="${l?RAMP[l-1]:'none'}"><title>${c.t} · ${fmt(c.v)}</title></rect>`; });
     return out+'</svg>';
   }
-  function weekGrid(key, series){
-    const w=weekly(series); const C=11,G=2,Hc=28,top=14, W=cols*(C+G), H=top+Hc;
-    const max=Math.max(1,...Object.values(w));
-    let out=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;max-width:1100px" aria-label="${key} by week">`;
-    let lastM=-1;
-    for(let c=0;c<cols;c++){ const i=c*7-lead; const d=days[Math.max(0,Math.min(days.length-1,i))]; const m=+d.slice(5,7)-1;
-      if(m!==lastM){ out+=`<text x="${c*(C+G)}" y="10">${MONTHS[m]}</text>`; lastM=m; }
-      const v=w[c]||0, l=level(v,max);
-      out+=`<rect x="${c*(C+G)}" y="${top}" width="${C}" height="${Hc}" fill="var(--ink)" fill-opacity="${l?OP[l]:0}" stroke="var(--line-2)" stroke-width="${l?0:1}"><title>week of ${d} · ${fmt(v)}</title></rect>`; }
-    return out+'</svg>';
+  function dayStrip(key, series){
+    const cells=days.map(d=>({d, t:d, v:series[d]||0}));
+    return strip(key, cells, i=>true, 2, 1);
+  }
+  function weekStrip(key, series){
+    const w=weekly(series);
+    const cells=w.map((v,c)=>{ const i=c*7-lead; const d=days[Math.max(0,Math.min(days.length-1,i))]; return {d, t:'week of '+d, v}; });
+    return strip(key, cells, i=>true, 11, 2);
+  }
+  function spark(w){ // weekly totals as a faint area, drawn behind the meta cell
+    const W=200,H=80,n=w.length,max=Math.max(1,...w);
+    const pts=w.map((v,i)=>[(i/(n-1))*W, H-(v/max)*H*0.9]);
+    const line=pts.map((p,i)=>(i?'L':'M')+p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' ');
+    return `<svg class="spark" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true"><path d="${line} L${W} ${H} L0 ${H} Z" fill="var(--ink)" fill-opacity=".07"/><path d="${line}" fill="none" stroke="var(--ink)" stroke-opacity=".35" stroke-width="1"/></svg>`;
+  }
+  function growth(w){ // this week vs last, and last 4 weeks vs prior 4
+    const n=w.length; const tw=w[n-1], lw=w[n-2];
+    const l4=w.slice(n-4).reduce((a,b)=>a+b,0), p4=w.slice(n-8,n-4).reduce((a,b)=>a+b,0);
+    const cell=(a,b,lab)=>{ const g=pct(a,b); const cls=g>0?'up':g<0?'down':'flat'; const txt=g===Infinity?'new':Math.abs(g)>=300?(g>0?'▲ ×':'▼ ×')+(a/b).toFixed(1):(g>0?'▲ ':g<0?'▼ ':'– ')+Math.abs(g)+'%'; return `<span class="g ${cls}" title="${lab}: ${fmt(a)} vs ${fmt(b)}">${txt}<small>${lab}</small></span>`; };
+    return cell(tw,lw,'wow')+cell(l4,p4,'4w');
   }
   window.hmSet=function(grain){
     document.querySelectorAll('.hm-toggle button').forEach(b=>b.classList.toggle('on',b.dataset.grain===grain));
     const host=document.getElementById('hm-rows'); host.innerHTML='';
     ROWS.forEach(([key,label,desc])=>{ const series=D.series[key]||{}; const total=Object.values(series).reduce((a,b)=>a+b,0);
-      const active=Object.keys(series).length;
+      const active=Object.keys(series).length; const w=weekly(series);
       const row=document.createElement('div'); row.className='hm-row'; row.id='hm-'+key;
-      row.innerHTML=`<div class="meta"><div class="v">${fmt(total)}</div><div class="l">${label}</div><div class="d">${desc} · ${active} active days</div></div><div class="grid">${grain==='day'?dayGrid(key,series):weekGrid(key,series)}</div>`;
+      row.innerHTML=`<div class="meta">${spark(w)}<div class="v">${fmt(total)}</div><div class="l">${label}</div><div class="d">${desc} · ${active} active days</div><div class="growth">${growth(w)}</div></div><div class="grid">${grain==='day'?dayStrip(key,series):weekStrip(key,series)}</div>`;
       host.appendChild(row); });
   };
   hmSet('day');

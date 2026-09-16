@@ -70,12 +70,14 @@ as `pt-theme`). Only ground/ink/line tokens change; wine and foil are fixed.
 
 ## Heatmaps (Trends view)
 
-- GitHub-contributions grammar: 11px cells, 2px gutters; 7 × 53 grid for
-  days (Monday top), 1 × 52 strip for weeks; month labels above.
-- One colour — ink at opacities `.12 / .3 / .55 / .8 / 1`; empty cells are
-  hairline outlines. The row label carries the metric, never the hue.
+- One strip per metric row: 365 × (2px + 1px gutter) for days, 52 × (11px +
+  2px) for weeks; month labels above. Never a 7-row calendar grid.
+- Colour ramp low → high: `#B4382E → #C9633A → #C9A24A → #8F9A3C → #6E8A2E`
+  (red → green); empty cells are transparent with a hairline outline.
 - Intensity is log-scaled **per row** so one outlier day cannot flatten a year.
-- Each row has a left meta cell: total (condensed 28px), metric label, note.
+- Left meta cell: total (condensed 28px), label, note, growth chips
+  (▲/▼ week-on-week and last-4-weeks vs prior-4, green/red), with a faint
+  weekly sparkline (`--ink` at 7 % fill / 35 % stroke) drawn behind it.
 
 ## Implementation notes
 
