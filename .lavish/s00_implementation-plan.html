@@ -299,8 +299,8 @@
   <div class="head">
     <div class="eyebrow">Primary view · real data from this laptop</div>
     <h2>Trends</h2>
-    <p class="lede">The contributions-tracker lens, one row per metric. X axis is a single strip — the last 365 days or the last 52 weeks; colour is volume, red → green; the sparkline behind each total is the weekly shape. This is the first thing the app shows.</p>
-    <div class="hm-toggle" role="tablist"><button type="button" class="on" data-grain="day" onclick="hmSet('day')">Day · 365</button><button type="button" data-grain="week" onclick="hmSet('week')">Week · 52</button></div>
+    <p class="lede">The contributions-tracker lens, one row per metric. X axis is a single strip — a rolling 90 days or a rolling 26 weeks; colour is volume, red → green; the sparkline behind each total is the last 26 weeks' shape. This is the first thing the app shows.</p>
+    <div class="hm-toggle" role="tablist"><button type="button" class="on" data-grain="day" onclick="hmSet('day')">Day · rolling 90</button><button type="button" data-grain="week" onclick="hmSet('week')">Week · rolling 26</button></div>
   </div>
   <div class="hm-rows" id="hm-rows"></div>
   <div class="hm-legend">low <i style="background:#B4382E"></i><i style="background:#C9633A"></i><i style="background:#C9A24A"></i><i style="background:#8F9A3C"></i><i style="background:#6E8A2E"></i> high · none = transparent (faint track shows the span) · log-scaled per row · ▲▼ = this week vs last (wow) and last 4 weeks vs prior 4 (4w)</div>
@@ -550,7 +550,7 @@
     </div>
   </div>
   <div class="cards c3" style="margin-top:36px">
-    <div class="card" id="view-trends"><h4>Trends</h4><p style="font-size:13px">Landing view. Heatmap row per metric — sessions, tokens, $, lavish pages, commits, PRs, deploys, projects active — day × 365 or week × 52, intensity = volume, log-scaled per row. Click a cell to filter every other view to that day/week.</p></div>
+    <div class="card" id="view-trends"><h4>Trends</h4><p style="font-size:13px">Landing view. Heatmap row per metric — sessions, tokens, $, lavish pages, commits, PRs, deploys, projects active — rolling 90 days or rolling 26 weeks, intensity = volume, log-scaled per row. Click a cell to filter every other view to that day/week.</p></div>
     <div class="card" id="view-agents"><h4>Agents</h4><p style="font-size:13px">Tokens & $ by day × model × project; build/eval/infra/writing split; session Gantt per day; cache-hit ratio; tool-call mix; Claude Code vs Codex; subagent fan-out.</p></div>
     <div class="card" id="view-github"><h4>GitHub</h4><p style="font-size:13px">Commit heatmap; branch lifecycle (created → PR → merged → deployed) with lead time; PR cycle time; CI pass rate & duration; unpushed local commits.</p></div>
     <div class="card" id="view-projects"><h4>Projects</h4><p style="font-size:13px">One card per repo: tokens vs commits vs deploys, last deploy, App Runner status, AWS $/month, lavish pages, eval runs. "Cost per merged PR" and "tokens per commit" as the honest efficiency metrics.</p></div>
@@ -610,7 +610,7 @@
       <h3>Ink for totals, foil for series</h3>
       <p style="font-size:13px">Single-series bars are ink. Multi-series (per model, per project) use magenta / gold / green / cocoa in that order. Wine is a surface, never a series colour. Diagrams: ink boxes, wine for stores, magenta for push edges.</p>
     </div>
-    <div class="card" id="ds-heatmap"><div class="eyebrow">Heatmaps</div><h3>Single strip, red → green, nulls transparent</h3><p style="font-size:13px">One row per metric, one strip per row: 365 × (2px + 1px) for days, 52 × (11px + 2px) for weeks, month labels above. Colour ramp <code>#B4382E → #C9633A → #C9A24A → #8F9A3C → #6E8A2E</code> (low → high), log-scaled per row; empty cells are hairline outlines. The meta cell carries total, a faint weekly sparkline behind it, and ▲▼ growth (week-on-week and 4w vs prior 4w).</p></div>
+    <div class="card" id="ds-heatmap"><div class="eyebrow">Heatmaps</div><h3>Single strip, red → green, nulls transparent</h3><p style="font-size:13px">One row per metric, one strip per row: rolling 90 days (10px + 2px cells) or rolling 26 weeks (36px + 4px), month labels above. Colour ramp <code>#B4382E → #C9633A → #C9A24A → #8F9A3C → #6E8A2E</code> (low → high), log-scaled per row; empty cells are hairline outlines. The meta cell carries total, a faint weekly sparkline behind it, and ▲▼ growth (week-on-week and 4w vs prior 4w).</p></div>
     <div class="card" id="ds-layout">
       <div class="eyebrow">Layout</div>
       <h3>Centred heads, 1400px max, 72px section rhythm</h3>
@@ -640,7 +640,7 @@
         <tr id="p0"><td class="id">P0</td><td>Repo, CLAUDE.md, AGENTS.md, DESIGN.md, this plan, branch <code>init</code>, public GitHub repo</td><td>this page is reviewed</td><td>—</td></tr>
         <tr id="p1"><td class="id">P1</td><td><code>pt collect</code>: claude_code, codex, git_local, lavish collectors; pydantic schema; offset state; fixtures + tests</td><td><code>pt collect --all</code> over the real laptop emits events with zero duplicates on re-run</td><td>P0</td></tr>
         <tr id="p2"><td class="id">P2</td><td>Local + S3 event store; DuckDB rollup SQL (tokens/cost/commits/pages by day×project×class); <code>pt rollup</code></td><td>parquet rollups reproduce hand-computed totals from fixtures</td><td>P1, D-01</td></tr>
-        <tr id="p3"><td class="id">P3</td><td>FastAPI <code>/api/*</code> read endpoints incl. <code>/api/trends?grain=day|week&amp;window=365</code> + <code>/ingest/*</code> with HMAC; demo-mode switch</td><td>OpenAPI docs; ingest rejects bad signatures in tests</td><td>P2</td></tr>
+        <tr id="p3"><td class="id">P3</td><td>FastAPI <code>/api/*</code> read endpoints incl. <code>/api/trends?grain=day|week&amp;window=90|26</code> + <code>/ingest/*</code> with HMAC; demo-mode switch</td><td>OpenAPI docs; ingest rejects bad signatures in tests</td><td>P2</td></tr>
         <tr id="p4"><td class="id">P4</td><td><code>pt github install-hooks</code> + <code>backfill</code>; webhook payload parsers</td><td>every nmp-dsci repo has a hook; backfill matches <code>gh api</code> counts</td><td>P3, D-03</td></tr>
         <tr id="p5"><td class="id">P5</td><td>React UI in the design system above: Trends (landing), Overview, Agents, GitHub, Projects, Ship log, Weekly</td><td>all six views render from <code>/api</code>; Lighthouse ≥ 90</td><td>P3</td></tr>
         <tr id="p6"><td class="id">P6</td><td>Terraform bootstrap+demo (from transcript-rag-agent, project <code>pt</code>), Dockerfile with baked snapshot, OIDC deploy workflow, Cost Explorer + EventBridge collectors</td><td><code>/api/health</code> green on App Runner; deploy on push to <code>main</code></td><td>P5, <code>aws login</code></td></tr>
@@ -802,28 +802,29 @@
   function level(v,max){ if(!v) return 0; const r=Math.log1p(v)/Math.log1p(max); return r<.2?1:r<.4?2:r<.6?3:r<.8?4:5; }
   function weekly(series){ const w=new Array(cols).fill(0); days.forEach((d,i)=>{ w[Math.floor((lead+i)/7)]+=(series[d]||0); }); return w; }
   function strip(key, cells, labelAt, C, G){
-    const Hc=C<6?40:28, top=14, W=cells.length*(C+G), H=top+Hc;
+    const Hc=C<20?36:40, top=14, W=cells.length*(C+G), H=top+Hc;
     const max=Math.max(1,...cells.map(c=>c.v));
     let out=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;max-width:1100px" preserveAspectRatio="none" aria-label="${key}">`;
     out+=`<rect x="0" y="${top}" width="${W-G}" height="${Hc}" fill="var(--ink)" fill-opacity=".04"/>`;
     let lastM=-1;
     cells.forEach((c,i)=>{ const m=+c.d.slice(5,7)-1;
-      if(m!==lastM && labelAt(i)){ out+=`<text x="${i*(C+G)}" y="10" style="font-size:${C<6?9:9}px" textLength="18" lengthAdjust="spacingAndGlyphs">${MONTHS[m]}</text>`; lastM=m; }
+      if(m!==lastM && labelAt(i)){ out+=`<text x="${i*(C+G)}" y="10">${MONTHS[m]}</text>`; lastM=m; }
       const l=level(c.v,max);
       out+=`<rect x="${i*(C+G)}" y="${top}" width="${C}" height="${Hc}" fill="${l?RAMP[l-1]:'none'}"><title>${c.t} · ${fmt(c.v)}</title></rect>`; });
     return out+'</svg>';
   }
+  const DAYS_WIN=90, WEEKS_WIN=26;   // rolling windows shown in the strips
   function dayStrip(key, series){
-    const cells=days.map(d=>({d, t:d, v:series[d]||0}));
-    return strip(key, cells, i=>true, 2, 1);
+    const cells=days.slice(-DAYS_WIN).map(d=>({d, t:d, v:series[d]||0}));
+    return strip(key, cells, i=>true, 10, 2);
   }
   function weekStrip(key, series){
     const w=weekly(series);
-    const cells=w.map((v,c)=>{ const i=c*7-lead; const d=days[Math.max(0,Math.min(days.length-1,i))]; return {d, t:'week of '+d, v}; });
-    return strip(key, cells, i=>true, 11, 2);
+    const cells=w.map((v,c)=>{ const i=c*7-lead; const d=days[Math.max(0,Math.min(days.length-1,i))]; return {d, t:'week of '+d, v}; }).slice(-WEEKS_WIN);
+    return strip(key, cells, i=>true, 36, 4);
   }
-  function spark(w){ // weekly totals as a faint area, drawn behind the meta cell
-    const W=200,H=80,n=w.length,max=Math.max(1,...w);
+  function spark(w){ // last 26 weekly totals as a faint area, drawn behind the meta cell
+    w=w.slice(-WEEKS_WIN); const W=200,H=80,n=w.length,max=Math.max(1,...w);
     const pts=w.map((v,i)=>[(i/(n-1))*W, H-(v/max)*H*0.9]);
     const line=pts.map((p,i)=>(i?'L':'M')+p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' ');
     return `<svg class="spark" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true"><path d="${line} L${W} ${H} L0 ${H} Z" fill="var(--ink)" fill-opacity=".07"/><path d="${line}" fill="none" stroke="var(--ink)" stroke-opacity=".35" stroke-width="1"/></svg>`;

@@ -70,14 +70,15 @@ as `pt-theme`). Only ground/ink/line tokens change; wine and foil are fixed.
 
 ## Heatmaps (Trends view)
 
-- One strip per metric row: 365 × (2px + 1px gutter) for days, 52 × (11px +
-  2px) for weeks; month labels above. Never a 7-row calendar grid.
+- One strip per metric row: rolling 90 days (10px cells, 2px gutter) or
+  rolling 26 weeks (36px cells, 4px gutter); month labels above. Never a
+  7-row calendar grid.
 - Colour ramp low → high: `#B4382E → #C9633A → #C9A24A → #8F9A3C → #6E8A2E`
   (red → green); empty cells are transparent with a hairline outline.
 - Intensity is log-scaled **per row** so one outlier day cannot flatten a year.
 - Left meta cell: total (condensed 28px), label, note, growth chips
   (▲/▼ week-on-week and last-4-weeks vs prior-4, green/red), with a faint
-  weekly sparkline (`--ink` at 7 % fill / 35 % stroke) drawn behind it.
+  26-week sparkline (`--ink` at 7 % fill / 35 % stroke) drawn behind it.
 
 ## Implementation notes
 

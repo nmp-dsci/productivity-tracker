@@ -83,14 +83,14 @@ ecr_push, daily_cost. `lavish`: page_created, page_updated. `evals`: run.
 2. **P2 Store + rollups** — S3 append; DuckDB SQL in `store/queries/*.sql`
    producing daily/weekly parquet: tokens by project×model×class, cost,
    commits, PRs, deploys, pages. `pt rollup`.
-3. **P3 API** — FastAPI `/api/trends?grain=day|week&window=365`, `/api/overview`, `/api/agents`, `/api/github`,
+3. **P3 API** — FastAPI `/api/trends?grain=day|week&window=90|26`, `/api/overview`, `/api/agents`, `/api/github`,
    `/api/projects/{name}`, `/api/shiplog`, `/api/weekly`; `/ingest/github`,
    `/ingest/aws` with HMAC verification. Demo mode = read-only.
 4. **P4 GitHub** — `pt github install-hooks` creates a webhook on every
    `nmp-dsci` repo; `pt github backfill` walks commits/PRs/runs via the API.
 5. **P5 Frontend** — Vite + React + TS. Views: **Trends** (landing: one
    contributions-style heatmap row per metric — sessions, tokens, $, lavish
-   pages, commits, PRs, deploys, projects active — day×365 or week×52,
+   pages, commits, PRs, deploys, projects active — rolling 90 days or rolling 26 weeks,
    intensity = volume, log-scaled per row; clicking a cell filters the other
    views), Overview, Agents, GitHub, Projects, Ship log, Weekly review.
 6. **P6 AWS + deploy** — copy `transcript-rag-agent` bootstrap/demo terraform
