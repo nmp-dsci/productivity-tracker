@@ -14,6 +14,8 @@ WITH session_cls AS (
 SELECT
   day, project, source, kind, cls,
   CASE WHEN source IN ('claude_code', 'codex') THEN model END AS model,
+  -- branch only matters for git activity; keeping it off agent rows caps cardinality
+  CASE WHEN source IN ('git_local', 'github') THEN branch END AS branch,
   count(*)                          AS n,
   count(DISTINCT session_id)        AS sessions,
   sum(tok_in)                       AS tok_in,

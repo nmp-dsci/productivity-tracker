@@ -1,0 +1,340 @@
+"""Read queries over the parquet rollups. Every function takes a DuckDB
+connection with `daily`, `sessions` and `shiplog` views mounted (see `open_db`)
+and returns plain JSON-able dicts.
+"""
+
+from __future__ import annotations
+
+from datetime import date, timedelta
+from pathlib import Path
+from typing import Any
+
+import duckdb
+
+METRICS: list[tuple[str, str, str]] = [
+    # key, label, note
+    ("claude_sessions", "Claude Code sessions", "top-level sessions"),
+    ("subagent_sessions", "Subagent sessions", "spawned by agents and eval loops"),
+    ("prompts", "Prompts sent", "human turns"),
+    ("codex_sessions", "Codex sessions", "session files"),
+    ("tokens_out", "Output tokens", "Claude Code + Codex"),
+    ("cost_usd", "Agent $ (list price)", "derived from prices.yaml"),
+    ("lavish", "Lavish pages", "review pages written"),
+    ("commits", "Commits", "all repos, all branches"),
+    ("prs", "PRs merged", "GitHub"),
+    ("deploys", "Deploys", "App Runner + GitHub deployments"),
+    ("projects", "Projects active", "repos with agent work or a commit"),
+]
+
+_METRIC_SQL: dict[str, str] = {
+    # Sessions you started, not the subagents an eval loop fans out.
+    "claude_sessions": "SELECT day, count(*) v FROM sessions WHERE source='claude_code' AND subagent_msgs < greatest(messages, 1) GROUP BY 1",
+    "subagent_sessions": "SELECT day, count(*) v FROM sessions WHERE source='claude_code' AND subagent_msgs >= greatest(messages, 1) GROUP BY 1",
+    "codex_sessions": "SELECT day, count(*) v FROM sessions WHERE source='codex' GROUP BY 1",
+    "prompts": "SELECT day, sum(n) v FROM daily WHERE source='claude_code' AND kind='prompt' GROUP BY 1",
+    "tokens_out": "SELECT day, sum(tok_out) v FROM daily WHERE source IN ('claude_code','codex') GROUP BY 1",
+    "cost_usd": "SELECT day, sum(cost_usd) v FROM daily WHERE source IN ('claude_code','codex') GROUP BY 1",
+    "lavish": "SELECT day, sum(n) v FROM daily WHERE source='lavish' AND kind='page_created' GROUP BY 1",
+    "commits": "SELECT day, sum(n) v FROM daily WHERE source='git_local' AND kind='commit' GROUP BY 1",
+    "prs": "SELECT day, sum(n) v FROM daily WHERE source='github' AND kind='pr_merged' GROUP BY 1",
+    "deploys": """SELECT day, sum(n) v FROM daily WHERE (source='aws' AND kind='apprunner_deploy')
+                  OR (source='github' AND kind='deployment_status') GROUP BY 1""",
+    "projects": """SELECT day, count(DISTINCT project) v FROM daily
+                   WHERE project IS NOT NULL AND ((source='git_local' AND kind='commit')
+                   OR (source IN ('claude_code','codex') AND kind IN ('assistant_message','token_count'))) GROUP BY 1""",
+}
+
+
+def open_db(rollups_dir: Path) -> duckdb.DuckDBPyConnection:
+    con = duckdb.connect()
+    for name in ("daily", "sessions", "shiplog"):
+        p = (rollups_dir / f"{name}.parquet").as_posix()
+        con.execute(f"CREATE OR REPLACE VIEW {name} AS SELECT * FROM read_parquet('{p}')")
+    return con
+
+
+def _rows(
+    con: duckdb.DuckDBPyConnection, sql: str, params: list[Any] | None = None
+) -> list[dict[str, Any]]:
+    cur = con.execute(sql, params or [])
+    cols = [d[0] for d in cur.description or []]
+    return [dict(zip(cols, r, strict=False)) for r in cur.fetchall()]
+
+
+def _series(con: duckdb.DuckDBPyConnection, key: str, start: date, end: date) -> dict[str, float]:
+    sql = f"SELECT day, v FROM ({_METRIC_SQL[key]}) WHERE day BETWEEN ? AND ?"
+    return {str(r["day"]): float(r["v"] or 0) for r in _rows(con, sql, [start, end])}
+
+
+def _weekly(series: dict[str, float], start: date, end: date) -> list[tuple[date, float]]:
+    """Sum per ISO week (Monday start), covering start..end."""
+    first = start - timedelta(days=start.weekday())
+    out: list[tuple[date, float]] = []
+    d = first
+    while d <= end:
+        total = sum(series.get((d + timedelta(days=i)).isoformat(), 0.0) for i in range(7))
+        out.append((d, total))
+        d += timedelta(days=7)
+    return out
+
+
+def _growth(weeks: list[tuple[date, float]]) -> dict[str, float | None]:
+    def pct(a: float, b: float) -> float | None:
+        if b <= 0:
+            return None if a <= 0 else float("inf")
+        return round((a - b) / b * 100, 1)
+
+    vals = [v for _, v in weeks]
+    if len(vals) < 2:
+        return {"wow": None, "w4": None}
+    wow = pct(vals[-1], vals[-2])
+    l4 = sum(vals[-4:])
+    p4 = sum(vals[-8:-4]) if len(vals) >= 8 else 0
+    w4 = pct(l4, p4) if len(vals) >= 5 else None
+    return {"wow": None if wow == float("inf") else wow, "w4": None if w4 == float("inf") else w4}
+
+
+def trends(con: duckdb.DuckDBPyConnection, grain: str, window: int, today: date) -> dict[str, Any]:
+    # Growth always uses the last 8 full-ish weeks regardless of the window shown.
+    span_days = window if grain == "day" else window * 7
+    start = today - timedelta(days=max(span_days, 8 * 7) - 1)
+    rows = []
+    for key, label, note in METRICS:
+        series = _series(con, key, start, today)
+        weeks = _weekly(series, start, today)
+        if grain == "day":
+            days = [today - timedelta(days=i) for i in range(window - 1, -1, -1)]
+            cells = [{"d": d.isoformat(), "v": series.get(d.isoformat(), 0.0)} for d in days]
+        else:
+            cells = [{"d": d.isoformat(), "v": v} for d, v in weeks[-window:]]
+        shown: list[float] = [float(c["v"]) for c in cells]  # type: ignore[arg-type]
+        rows.append(
+            {
+                "key": key,
+                "label": label,
+                "note": note,
+                "total": sum(shown),
+                "active": sum(1 for v in shown if v),
+                "spark": [v for _, v in weeks[-26:]],
+                "growth": _growth(weeks),
+                "cells": cells,
+            }
+        )
+    return {
+        "grain": grain,
+        "window": window,
+        "start": start.isoformat(),
+        "end": today.isoformat(),
+        "rows": rows,
+    }
+
+
+def overview(con: duckdb.DuckDBPyConnection, week_start: date) -> dict[str, Any]:
+    prev = week_start - timedelta(days=7)
+    end = week_start + timedelta(days=6)
+
+    def kpis(s: date, e: date) -> dict[str, float]:
+        out: dict[str, float] = {}
+        for key, _, _ in METRICS:
+            out[key] = sum(_series(con, key, s, e).values())
+        return out
+
+    this, last = kpis(week_start, end), kpis(prev, week_start - timedelta(days=1))
+    projects = _rows(
+        con,
+        """
+        SELECT project,
+               sum(CASE WHEN source IN ('claude_code','codex') THEN tok_out ELSE 0 END) AS tok_out,
+               sum(CASE WHEN source IN ('claude_code','codex') THEN cost_usd ELSE 0 END) AS cost_usd,
+               sum(CASE WHEN source='git_local' AND kind='commit' THEN n ELSE 0 END) AS commits,
+               sum(CASE WHEN source='github' AND kind='pr_merged' THEN n ELSE 0 END) AS prs,
+               sum(CASE WHEN source='lavish' AND kind='page_created' THEN n ELSE 0 END) AS pages,
+               sum(CASE WHEN (source='aws' AND kind='apprunner_deploy') OR (source='github' AND kind='deployment_status') THEN n ELSE 0 END) AS deploys
+        FROM daily WHERE day BETWEEN ? AND ? AND project IS NOT NULL
+        GROUP BY 1 HAVING tok_out > 0 OR commits > 0 ORDER BY tok_out DESC LIMIT 12""",
+        [week_start, end],
+    )
+    split = _rows(
+        con,
+        """
+        SELECT cls, sum(tok_out) AS tok_out, sum(cost_usd) AS cost_usd FROM daily
+        WHERE day BETWEEN ? AND ? AND source IN ('claude_code','codex') GROUP BY 1 ORDER BY 2 DESC""",
+        [week_start, end],
+    )
+    ship = _rows(
+        con,
+        "SELECT ts, day, source, kind, project, title, status, url FROM shiplog WHERE day BETWEEN ? AND ? ORDER BY ts DESC LIMIT 40",
+        [week_start, end],
+    )
+    return {
+        "week_start": week_start.isoformat(),
+        "week_end": end.isoformat(),
+        "kpis": this,
+        "prior": last,
+        "projects": projects,
+        "split": split,
+        "shiplog": ship,
+    }
+
+
+def agents(con: duckdb.DuckDBPyConnection, start: date, end: date) -> dict[str, Any]:
+    by_day_model = _rows(
+        con,
+        """
+        SELECT day, coalesce(model, 'unknown') AS model, sum(tok_out) AS tok_out, sum(tok_in) AS tok_in,
+               sum(tok_cr) AS tok_cr, sum(tok_cw) AS tok_cw, sum(cost_usd) AS cost_usd, sum(n) AS msgs
+        FROM daily WHERE day BETWEEN ? AND ? AND source IN ('claude_code','codex') AND kind IN ('assistant_message','token_count')
+        GROUP BY 1, 2 ORDER BY 1, 2""",
+        [start, end],
+    )
+    by_class = _rows(
+        con,
+        """
+        SELECT cls, sum(tok_out) AS tok_out, sum(cost_usd) AS cost_usd, sum(n) AS msgs FROM daily
+        WHERE day BETWEEN ? AND ? AND source IN ('claude_code','codex') AND kind IN ('assistant_message','token_count')
+        GROUP BY 1 ORDER BY 2 DESC""",
+        [start, end],
+    )
+    by_project = _rows(
+        con,
+        """
+        SELECT project, cls, sum(tok_out) AS tok_out, sum(cost_usd) AS cost_usd FROM daily
+        WHERE day BETWEEN ? AND ? AND source IN ('claude_code','codex') AND kind IN ('assistant_message','token_count') AND project IS NOT NULL
+        GROUP BY 1, 2 ORDER BY 3 DESC""",
+        [start, end],
+    )
+    tools = _rows(
+        con,
+        """
+        SELECT t AS tool, count(*) AS sessions FROM (SELECT unnest(tools) AS t FROM sessions WHERE day BETWEEN ? AND ?)
+        GROUP BY 1 ORDER BY 2 DESC LIMIT 20""",
+        [start, end],
+    )
+    cache = _rows(
+        con,
+        """
+        SELECT sum(tok_cr) AS cache_read, sum(tok_in) AS uncached, sum(tok_cw) AS cache_write FROM daily
+        WHERE day BETWEEN ? AND ? AND source='claude_code'""",
+        [start, end],
+    )
+    sessions = _rows(
+        con,
+        """
+        SELECT session_id, source, project, branch, first_ts, last_ts, seconds, messages, prompts, tok_out, cost_usd, cls, models, subagent_msgs
+        FROM sessions WHERE day BETWEEN ? AND ? AND messages > 0 ORDER BY first_ts DESC LIMIT 300""",
+        [start, end],
+    )
+    return {
+        "start": start.isoformat(),
+        "end": end.isoformat(),
+        "by_day_model": by_day_model,
+        "by_class": by_class,
+        "by_project": by_project,
+        "tools": tools,
+        "cache": cache[0] if cache else {},
+        "sessions": sessions,
+    }
+
+
+def github(con: duckdb.DuckDBPyConnection, start: date, end: date) -> dict[str, Any]:
+    commits = _rows(
+        con,
+        """
+        SELECT day, project, sum(n) AS commits, sum(insertions) AS insertions, sum(deletions) AS deletions
+        FROM daily WHERE day BETWEEN ? AND ? AND source='git_local' AND kind='commit' GROUP BY 1, 2 ORDER BY 1""",
+        [start, end],
+    )
+    prs = _rows(
+        con,
+        """
+        SELECT ts, day, project, branch, title, number, url, kind FROM shiplog
+        WHERE day BETWEEN ? AND ? AND source='github' AND kind IN ('pr_merged','pr_opened') ORDER BY ts DESC LIMIT 200""",
+        [start, end],
+    )
+    ci = _rows(
+        con,
+        """
+        SELECT day, sum(CASE WHEN status='success' THEN 1 ELSE 0 END) AS passed,
+               sum(CASE WHEN status='failure' THEN 1 ELSE 0 END) AS failed, count(*) AS runs
+        FROM shiplog WHERE day BETWEEN ? AND ? AND source='github' AND kind='workflow_run' GROUP BY 1 ORDER BY 1""",
+        [start, end],
+    )
+    branches = _rows(
+        con,
+        """
+        SELECT project, branch, count(*) AS commits, min(day) AS first_day, max(day) AS last_day
+        FROM daily WHERE day BETWEEN ? AND ? AND source='git_local' AND kind='commit' AND branch IS NOT NULL
+        GROUP BY 1, 2 ORDER BY 5 DESC LIMIT 60""",
+        [start, end],
+    )
+    gates = _rows(
+        con,
+        """
+        SELECT day, status, count(*) AS n FROM shiplog WHERE day BETWEEN ? AND ? AND source='nomistakes' GROUP BY 1, 2 ORDER BY 1""",
+        [start, end],
+    )
+    return {
+        "start": start.isoformat(),
+        "end": end.isoformat(),
+        "commits": commits,
+        "prs": prs,
+        "ci": ci,
+        "branches": branches,
+        "gates": gates,
+    }
+
+
+def projects(con: duckdb.DuckDBPyConnection, start: date, end: date) -> list[dict[str, Any]]:
+    return _rows(
+        con,
+        """
+        SELECT project,
+               sum(CASE WHEN source IN ('claude_code','codex') THEN tok_out ELSE 0 END) AS tok_out,
+               sum(CASE WHEN source IN ('claude_code','codex') THEN cost_usd ELSE 0 END) AS agent_usd,
+               sum(CASE WHEN source='aws' AND kind='daily_cost' THEN cost_usd ELSE 0 END) AS aws_usd,
+               sum(CASE WHEN source='git_local' AND kind='commit' THEN n ELSE 0 END) AS commits,
+               sum(CASE WHEN source='github' AND kind='pr_merged' THEN n ELSE 0 END) AS prs,
+               sum(CASE WHEN source='lavish' AND kind='page_created' THEN n ELSE 0 END) AS pages,
+               sum(CASE WHEN source='evals' THEN n ELSE 0 END) AS eval_runs,
+               sum(CASE WHEN (source='aws' AND kind='apprunner_deploy') OR (source='github' AND kind='deployment_status') THEN n ELSE 0 END) AS deploys,
+               max(CASE WHEN (source='aws' AND kind='apprunner_deploy') OR (source='github' AND kind='deployment_status') THEN day END) AS last_deploy,
+               max(day) AS last_active
+        FROM daily WHERE day BETWEEN ? AND ? AND project IS NOT NULL
+        GROUP BY 1 ORDER BY tok_out DESC""",
+        [start, end],
+    )
+
+
+def project_detail(
+    con: duckdb.DuckDBPyConnection, name: str, start: date, end: date
+) -> dict[str, Any]:
+    daily = _rows(
+        con,
+        """
+        SELECT day,
+               sum(CASE WHEN source IN ('claude_code','codex') THEN tok_out ELSE 0 END) AS tok_out,
+               sum(CASE WHEN source IN ('claude_code','codex') THEN cost_usd ELSE 0 END) AS cost_usd,
+               sum(CASE WHEN source='git_local' AND kind='commit' THEN n ELSE 0 END) AS commits,
+               sum(CASE WHEN source='lavish' THEN n ELSE 0 END) AS pages
+        FROM daily WHERE project = ? AND day BETWEEN ? AND ? GROUP BY 1 ORDER BY 1""",
+        [name, start, end],
+    )
+    split = _rows(
+        con,
+        "SELECT cls, sum(tok_out) AS tok_out FROM daily WHERE project = ? AND day BETWEEN ? AND ? AND source IN ('claude_code','codex') GROUP BY 1 ORDER BY 2 DESC",
+        [name, start, end],
+    )
+    ship = _rows(
+        con,
+        "SELECT ts, kind, source, title, status, url, branch FROM shiplog WHERE project = ? AND day BETWEEN ? AND ? ORDER BY ts DESC LIMIT 50",
+        [name, start, end],
+    )
+    return {"project": name, "daily": daily, "split": split, "shiplog": ship}
+
+
+def shiplog(con: duckdb.DuckDBPyConnection, limit: int) -> list[dict[str, Any]]:
+    return _rows(
+        con,
+        "SELECT ts, day, source, kind, project, repo, branch, title, status, url, number FROM shiplog ORDER BY ts DESC LIMIT ?",
+        [limit],
+    )
