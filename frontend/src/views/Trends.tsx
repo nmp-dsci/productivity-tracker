@@ -3,6 +3,9 @@ import { api } from '../api';
 import { RAMP, fmt, usd } from '../format';
 import { Growth, Head, Sparkline, Status, Strip, Toggle, Tooltip, useFetch, type HoverInfo } from '../ui';
 
+// Session counts are kept in the API (Overview, Agents) but not drawn as strips.
+const HIDE = new Set(['claude_sessions', 'automated_sessions', 'codex_sessions']);
+
 export default function Trends({ onPickDay }: { onPickDay: (d: string) => void }) {
   const [grain, setGrain] = useState<'day' | 'week'>('day');
   const window = grain === 'day' ? 180 : 26;
@@ -16,7 +19,7 @@ export default function Trends({ onPickDay }: { onPickDay: (d: string) => void }
       <Status loading={loading} error={error} />
       {data && (
         <div className="hm-rows">
-          {data.rows.map((r) => (
+          {data.rows.filter((r) => !HIDE.has(r.key)).map((r) => (
             <div className="hm-row" key={r.key} id={'hm-' + r.key}>
               <div className="meta">
                 <div className="v">{r.key === 'cost_usd' ? usd(r.total) : fmt(r.total)}</div>
