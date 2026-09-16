@@ -1,0 +1,487 @@
+<!doctype html>
+<html lang="en" data-theme="business">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>productivity-tracker — implementation plan v1</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/daisyui@5.5.19/daisyui.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/daisyui@5.5.19/themes.css">
+<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.2.4/dist/index.global.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  :where(.grid, .flex) > * { min-width: 0; }
+  :where(p, h1, h2, h3, h4, li, dd, td, th, .badge, .label, summary) { overflow-wrap: anywhere; }
+  :where(img, svg, video, canvas) { max-width: 100%; height: auto; }
+  html, body { background: var(--color-base-100); color: var(--color-base-content); }
+  .fig text { font-family: ui-sans-serif, system-ui, sans-serif; fill: currentColor; }
+  .fig .box { fill: var(--color-base-200); stroke: var(--color-base-content); stroke-opacity: .35; stroke-width: 1.2; }
+  .fig .box.hot { fill: color-mix(in oklab, var(--color-primary) 22%, var(--color-base-200)); stroke: var(--color-primary); stroke-opacity: .9; }
+  .fig .box.cloud { fill: color-mix(in oklab, var(--color-accent) 16%, var(--color-base-200)); stroke: var(--color-accent); stroke-opacity: .8; }
+  .fig .region { fill: none; stroke: var(--color-base-content); stroke-opacity: .2; stroke-dasharray: 5 4; }
+  .fig .edge { fill: none; stroke: var(--color-base-content); stroke-opacity: .6; stroke-width: 1.4; marker-end: url(#arrow); }
+  .fig .edge.live { stroke: var(--color-warning); stroke-opacity: .95; }
+  .fig .lbl { font-size: 12px; }
+  .fig .sm { font-size: 10px; opacity: .75; }
+  .fig .ttl { font-size: 13px; font-weight: 600; }
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .kbd-id { font-family: ui-monospace, monospace; font-size: .7rem; opacity: .7; }
+</style>
+</head>
+<body>
+<main class="mx-auto max-w-6xl p-5 lg:p-10 space-y-12">
+
+<!-- ───────────────────────── HERO ───────────────────────── -->
+<section id="hero" class="space-y-4">
+  <div class="flex flex-wrap items-center gap-2 text-sm opacity-70">
+    <span class="badge badge-outline">nmp-dsci/productivity-tracker</span>
+    <span class="badge badge-outline">branch: init</span>
+    <span class="badge badge-soft badge-warning">plan v1 · draft · 2026-09-16</span>
+  </div>
+  <h1 class="text-4xl lg:text-5xl font-bold tracking-tight">productivity-tracker</h1>
+  <p class="text-lg max-w-3xl opacity-90">
+    One event stream for everything a solo AI-assisted developer produces and consumes —
+    agent tokens, git activity, deployments, review pages — and a web app that answers
+    <strong>what did I ship, what did it cost in agent effort, and how is that trending?</strong>
+  </p>
+  <div role="alert" class="alert alert-soft alert-info max-w-3xl">
+    <span>Sections marked <span class="badge badge-sm badge-warning">decide</span> have a form at the bottom of the page.
+    Annotate anything else inline. Every number below was measured on this laptop today, not estimated.</span>
+  </div>
+</section>
+
+<!-- ───────────────────────── CURRENT STATE ───────────────────────── -->
+<section id="current-state" class="space-y-4">
+  <h2 class="text-2xl font-semibold">1 · What already exists to be captured</h2>
+  <p class="opacity-80 max-w-3xl">The data is already on disk. Nothing needs to be instrumented from zero — the first job is to <em>read</em> it.</p>
+  <div class="stats stats-vertical lg:stats-horizontal shadow w-full bg-base-200">
+    <div class="stat" id="stat-sessions">
+      <div class="stat-title">Claude Code sessions</div>
+      <div class="stat-value text-primary">10,776</div>
+      <div class="stat-desc">98 project dirs · 1.1 GB JSONL · 71,631 assistant msgs with <code>usage</code></div>
+    </div>
+    <div class="stat" id="stat-tokens">
+      <div class="stat-title">Lifetime output tokens</div>
+      <div class="stat-value text-primary">71.4M</div>
+      <div class="stat-desc">8.25B cache-read · 318M cache-write · 3.9M uncached input</div>
+    </div>
+    <div class="stat" id="stat-codex">
+      <div class="stat-title">Codex sessions</div>
+      <div class="stat-value">92</div>
+      <div class="stat-desc"><code>~/.codex/sessions/YYYY/MM/DD/*.jsonl</code> with <code>token_count</code> events</div>
+    </div>
+    <div class="stat" id="stat-lavish">
+      <div class="stat-title">Lavish pages</div>
+      <div class="stat-value text-accent">195</div>
+      <div class="stat-desc">across 15 portfolio repos · max 56 (ai-engineer-fit), 49 (data-qa-agent)</div>
+    </div>
+  </div>
+  <div class="grid md:grid-cols-2 gap-4">
+    <div class="card card-border bg-base-100" id="model-mix">
+      <div class="card-body">
+        <h3 class="card-title text-base">Model mix (assistant messages, lifetime)</h3>
+        <div class="space-y-2 text-sm">
+          <div><div class="flex justify-between"><span>claude-haiku-4-5</span><span class="mono">25,427</span></div><progress class="progress progress-primary" value="25427" max="25427"></progress></div>
+          <div><div class="flex justify-between"><span>claude-sonnet-5</span><span class="mono">16,538</span></div><progress class="progress progress-primary" value="16538" max="25427"></progress></div>
+          <div><div class="flex justify-between"><span>claude-opus-5</span><span class="mono">16,235</span></div><progress class="progress progress-primary" value="16235" max="25427"></progress></div>
+          <div><div class="flex justify-between"><span>claude-fable-5</span><span class="mono">8,585</span></div><progress class="progress progress-primary" value="8585" max="25427"></progress></div>
+          <div><div class="flex justify-between"><span>claude-fable-5-1</span><span class="mono">3,038</span></div><progress class="progress progress-primary" value="3038" max="25427"></progress></div>
+        </div>
+        <p class="text-xs opacity-70 mt-2">Haiku dominates by message count because subagents and lightweight tools use it — token-weighted, Opus/Fable will dominate cost. That gap is exactly the kind of thing the app should make visible.</p>
+      </div>
+    </div>
+    <div class="card card-border bg-base-100" id="ground-truth">
+      <div class="card-body">
+        <h3 class="card-title text-base">Facts that shape the design</h3>
+        <ul class="text-sm space-y-2 list-disc pl-5">
+          <li><strong><code>nmp-dsci</code> is a GitHub user, not an org</strong> — there is no account-level webhook. Hooks must be installed per repo (scripted) or via a GitHub App.</li>
+          <li>Several repos (ConvFinQA-agent, DABStep-loop, data-qa-agent…) push only to the <code>no-mistakes</code> bare remote — <strong>local git must be a source</strong>, GitHub alone misses commits.</li>
+          <li>Every Claude Code assistant line carries <code>cwd</code>, <code>gitBranch</code>, <code>model</code>, <code>version</code> and full <code>usage</code> (incl. <code>thinking_tokens</code>, cache 5m/1h split). Project attribution is free.</li>
+          <li>Claude Code hooks (<code>SessionStart</code>/<code>Stop</code>/<code>PostToolUse</code>) give live events but <strong>no token counts</strong> — JSONL stays the source of truth for tokens.</li>
+          <li>AWS account <code>089783391188</code> already has the GitHub OIDC provider and a tfstate bucket; <code>transcript-rag-agent</code> is the App Runner template to copy.</li>
+          <li>AWS CLI has no active credentials right now (<code>aws login</code> needed before terraform).</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ───────────────────────── ARCHITECTURE ───────────────────────── -->
+<section id="architecture" class="space-y-4">
+  <h2 class="text-2xl font-semibold">2 · Proposed architecture</h2>
+  <p class="opacity-80 max-w-3xl">Pull-first collectors on the laptop, an append-only event store in S3, DuckDB rollups, and one read-mostly App Runner service. Webhooks are an accelerator for GitHub/AWS, never the only path — backfill is always possible.</p>
+  <figure class="card card-border bg-base-100 p-3 lg:p-5" id="arch-figure">
+    <svg class="fig w-full" viewBox="0 0 1000 470" role="img" aria-labelledby="arch-title">
+      <title id="arch-title">Collectors on the laptop and webhooks feed an S3 event store; rollups produce parquet; App Runner serves API and UI</title>
+      <defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="currentColor" opacity=".7"/></marker></defs>
+
+      <!-- regions -->
+      <rect id="region-laptop" class="region" x="12" y="30" width="300" height="420" rx="10"/>
+      <text x="24" y="52" class="ttl">laptop</text>
+      <rect id="region-aws" class="region" x="340" y="30" width="648" height="420" rx="10"/>
+      <text x="352" y="52" class="ttl">AWS ap-southeast-2</text>
+
+      <!-- laptop collectors -->
+      <g id="n-collect"><rect class="box hot" x="30" y="70" width="264" height="44" rx="6"/><text x="162" y="88" text-anchor="middle" class="lbl" font-weight="600">pt collect  (launchd, every 5 min)</text><text x="162" y="104" text-anchor="middle" class="sm">idempotent · offset-tracked · metadata only</text></g>
+      <g id="n-src-claude"><rect class="box" x="30" y="130" width="126" height="50" rx="6"/><text x="93" y="150" text-anchor="middle" class="lbl">claude_code</text><text x="93" y="166" text-anchor="middle" class="sm">~/.claude/projects</text></g>
+      <g id="n-src-codex"><rect class="box" x="168" y="130" width="126" height="50" rx="6"/><text x="231" y="150" text-anchor="middle" class="lbl">codex</text><text x="231" y="166" text-anchor="middle" class="sm">~/.codex/sessions</text></g>
+      <g id="n-src-git"><rect class="box" x="30" y="192" width="126" height="50" rx="6"/><text x="93" y="212" text-anchor="middle" class="lbl">git_local</text><text x="93" y="228" text-anchor="middle" class="sm">~/git/**/.git reflog</text></g>
+      <g id="n-src-lavish"><rect class="box" x="168" y="192" width="126" height="50" rx="6"/><text x="231" y="212" text-anchor="middle" class="lbl">lavish</text><text x="231" y="228" text-anchor="middle" class="sm">**/.lavish/sNN_*.html</text></g>
+      <g id="n-src-evals"><rect class="box" x="30" y="254" width="126" height="50" rx="6"/><text x="93" y="274" text-anchor="middle" class="lbl">evals / gates</text><text x="93" y="290" text-anchor="middle" class="sm">evals/runs · ~/.no-mistakes</text></g>
+      <g id="n-src-aws"><rect class="box" x="168" y="254" width="126" height="50" rx="6"/><text x="231" y="274" text-anchor="middle" class="lbl">aws</text><text x="231" y="290" text-anchor="middle" class="sm">Cost Explorer · App Runner</text></g>
+      <g id="n-hooks"><rect class="box" x="30" y="330" width="264" height="44" rx="6" stroke-dasharray="4 3"/><text x="162" y="348" text-anchor="middle" class="lbl">Claude Code hooks (optional, live)</text><text x="162" y="364" text-anchor="middle" class="sm">SessionStart / Stop / PostToolUse → POST /ingest/agent</text></g>
+      <g id="n-state"><rect class="box" x="30" y="392" width="264" height="40" rx="6"/><text x="162" y="410" text-anchor="middle" class="lbl">data/events/*.jsonl  +  ~/.pt/state.json</text><text x="162" y="424" text-anchor="middle" class="sm">local copy · works fully offline</text></g>
+
+      <!-- cloud -->
+      <g id="n-s3-raw"><rect class="box cloud" x="380" y="120" width="220" height="60" rx="6"/><text x="490" y="142" text-anchor="middle" class="lbl" font-weight="600">S3 event store (raw)</text><text x="490" y="158" text-anchor="middle" class="sm">raw/&lt;source&gt;/&lt;date&gt;/*.jsonl</text><text x="490" y="172" text-anchor="middle" class="sm">append-only · immutable objects</text></g>
+      <g id="n-rollup"><rect class="box cloud" x="380" y="220" width="220" height="56" rx="6"/><text x="490" y="242" text-anchor="middle" class="lbl" font-weight="600">pt rollup (GH Action, hourly)</text><text x="490" y="258" text-anchor="middle" class="sm">DuckDB SQL → rollups/*.parquet</text></g>
+      <g id="n-s3-rollup"><rect class="box cloud" x="380" y="316" width="220" height="50" rx="6"/><text x="490" y="336" text-anchor="middle" class="lbl">S3 rollups (parquet)</text><text x="490" y="352" text-anchor="middle" class="sm">daily · weekly · per project</text></g>
+
+      <g id="n-apprunner"><rect class="box hot" x="660" y="200" width="300" height="140" rx="8"/><text x="810" y="224" text-anchor="middle" class="ttl">App Runner · pt-demo</text><text x="810" y="246" text-anchor="middle" class="lbl">FastAPI  /api/*  (DuckDB over parquet)</text><text x="810" y="264" text-anchor="middle" class="lbl">/ingest/github · /ingest/aws  (HMAC)</text><text x="810" y="282" text-anchor="middle" class="lbl">React UI (Vite, TS)</text><text x="810" y="306" text-anchor="middle" class="sm">demo image bakes a parquet snapshot</text><text x="810" y="320" text-anchor="middle" class="sm">aggregate metrics only · no keys · read-only</text></g>
+
+      <g id="n-github"><rect class="box" x="660" y="80" width="140" height="50" rx="6"/><text x="730" y="100" text-anchor="middle" class="lbl">GitHub</text><text x="730" y="116" text-anchor="middle" class="sm">per-repo webhooks</text></g>
+      <g id="n-eventbridge"><rect class="box" x="820" y="80" width="140" height="50" rx="6"/><text x="890" y="100" text-anchor="middle" class="lbl">EventBridge</text><text x="890" y="116" text-anchor="middle" class="sm">App Runner deploy events</text></g>
+      <g id="n-browser"><rect class="box" x="700" y="390" width="220" height="44" rx="6"/><text x="810" y="408" text-anchor="middle" class="lbl">browser · you (and portfolio visitors)</text><text x="810" y="424" text-anchor="middle" class="sm">Overview · Agents · GitHub · Projects · Ship log</text></g>
+
+      <!-- edges -->
+      <path id="e-collect-src" class="edge" d="M162 114 V126" marker-end="none"/>
+      <path id="e-state" class="edge" d="M162 304 V326" marker-end="none"/>
+      <path id="e-collect-s3" class="edge" d="M294 92 H340 V150 H376"/>
+      <path id="e-hooks-app" class="edge live" d="M294 352 H360 V420 H640 V330 H656" stroke-dasharray="4 3"/>
+      <path id="e-s3-rollup" class="edge" d="M490 180 V216"/>
+      <path id="e-rollup-parquet" class="edge" d="M490 276 V312"/>
+      <path id="e-parquet-app" class="edge" d="M600 341 H630 V270 H656"/>
+      <path id="e-github-app" class="edge live" d="M730 130 V196"/>
+      <path id="e-eb-app" class="edge live" d="M890 130 V196"/>
+      <path id="e-app-raw" class="edge live" d="M660 240 H620 V160 H604"/>
+      <path id="e-app-browser" class="edge" d="M810 340 V386"/>
+
+      <!-- legend -->
+      <g id="legend" transform="translate(360,400)">
+        <line x1="0" y1="10" x2="30" y2="10" class="edge" marker-end="none"/><text x="36" y="14" class="sm">pull (batch)</text>
+        <line x1="120" y1="10" x2="150" y2="10" class="edge live" marker-end="none"/><text x="156" y="14" class="sm">push (webhook / hook)</text>
+      </g>
+    </svg>
+    <figcaption class="text-xs opacity-70 mt-2">Why S3 + DuckDB and not a database: the workload is append-only events with analytical reads. App Runner may run more than one instance, so the ingest path writes immutable S3 objects and never a local file. The demo image bakes a snapshot exactly like <code>transcript-rag-agent</code> bakes its Chroma index.</figcaption>
+  </figure>
+</section>
+
+<!-- ───────────────────────── SOURCES ───────────────────────── -->
+<section id="sources" class="space-y-4">
+  <h2 class="text-2xl font-semibold">3 · Sources, signals, capture mechanism</h2>
+  <div class="overflow-x-auto rounded-box border border-base-content/10 bg-base-100">
+    <table class="table table-sm">
+      <thead><tr><th>ID</th><th>Source</th><th>Signals captured</th><th>Mechanism</th><th>Where the data lives today</th><th>v1?</th></tr></thead>
+      <tbody>
+        <tr id="src-claude"><td class="kbd-id">S-01</td><td><strong>Claude Code</strong></td><td>per-message tokens (input / output / cache r+w / thinking), model, cwd→project, branch, CLI version, tool-use mix, session start/end, subagent fan-out, <em>build vs eval</em> class</td><td>Pull: tail <code>~/.claude/projects/&lt;slug&gt;/*.jsonl</code> by byte offset. Push (optional): hooks → <code>/ingest/agent</code> for live "now working on" state.</td><td>10,776 files · 1.1 GB</td><td><span class="badge badge-success badge-sm">yes</span></td></tr>
+        <tr id="src-codex"><td class="kbd-id">S-02</td><td><strong>Codex</strong></td><td><code>session_meta</code> (cwd, model_provider, cli_version), <code>token_count</code> (input / cached / output / reasoning)</td><td>Pull: same offset tailer over <code>~/.codex/sessions/**</code></td><td>92 files</td><td><span class="badge badge-success badge-sm">yes</span></td></tr>
+        <tr id="src-git"><td class="kbd-id">S-03</td><td><strong>Local git</strong></td><td>commits (sha, ts, files, +/-), branch create/delete, checkout switches (from reflog) — catches work never pushed to GitHub</td><td>Pull: <code>git log --all</code> + reflog per repo under <code>~/git/nmp-ai-portfolio</code></td><td>21 repos</td><td><span class="badge badge-success badge-sm">yes</span></td></tr>
+        <tr id="src-github"><td class="kbd-id">S-04</td><td><strong>GitHub</strong></td><td>push, branch created/deleted, PR opened/merged/closed, review, <code>workflow_run</code> (CI pass/fail, duration), <code>deployment_status</code></td><td>Push: per-repo webhook (scripted <code>pt github install-hooks</code>, HMAC secret). Pull: <code>pt github backfill</code> via REST for history and gaps.</td><td>github.com/nmp-dsci</td><td><span class="badge badge-success badge-sm">yes</span></td></tr>
+        <tr id="src-aws"><td class="kbd-id">S-05</td><td><strong>AWS</strong></td><td>App Runner services + deploy operations (success/fail, duration), ECR image pushes, daily cost by <code>project</code> tag</td><td>Push: EventBridge rule → <code>/ingest/aws</code>. Pull: Cost Explorer daily, App Runner list (tag scan).</td><td>acct 089783391188</td><td><span class="badge badge-success badge-sm">yes</span></td></tr>
+        <tr id="src-lavish"><td class="kbd-id">S-06</td><td><strong>Lavish pages</strong></td><td>page created/updated per project (title from <code>&lt;title&gt;</code>, size, sNN index, mtime) — a proxy for design/review effort</td><td>Pull: filesystem scan of <code>**/.lavish/sNN_*.html</code></td><td>195 pages · 15 repos</td><td><span class="badge badge-success badge-sm">yes</span></td></tr>
+        <tr id="src-evals"><td class="kbd-id">S-07</td><td><strong>Eval runs</strong></td><td>eval run per project (ts, config, headline metric) from <code>evals/runs/*.json</code>, <code>runs/</code>, MLflow file stores</td><td>Pull: per-repo adapter (each repo has its own run format)</td><td>transcript-rag-agent, DABStep-loop, tau2-loop, ConvFinQA…</td><td><span class="badge badge-warning badge-sm">v1.1</span></td></tr>
+        <tr id="src-nm"><td class="kbd-id">S-08</td><td><strong>no-mistakes gates</strong></td><td>gate runs (repo, branch, review/tests/lint pass-fail, PR created)</td><td>Pull: <code>~/.no-mistakes/{logs,evidence}</code></td><td>local daemon</td><td><span class="badge badge-warning badge-sm">v1.1</span></td></tr>
+        <tr id="src-dbx"><td class="kbd-id">S-09</td><td>Databricks</td><td>DAB deploys, job runs (databricks-propertyiq, databricks-sa-coding)</td><td>Pull: <code>databricks bundle</code> / jobs API</td><td>workspace nmp-dsci</td><td><span class="badge badge-ghost badge-sm">later</span></td></tr>
+        <tr id="src-cal"><td class="kbd-id">S-10</td><td>Calendar / focus time</td><td>meeting load vs deep-work blocks, to normalise output per available hour</td><td>Pull: Google Calendar API</td><td>—</td><td><span class="badge badge-ghost badge-sm">later</span></td></tr>
+        <tr id="src-site"><td class="kbd-id">S-11</td><td>Portfolio site</td><td>publishes to <code>nmp-dsci.github.io</code> (write-ups shipped)</td><td>Covered by S-03/S-04 — just a project tag</td><td>—</td><td><span class="badge badge-success badge-sm">free</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ───────────────────────── SCHEMA ───────────────────────── -->
+<section id="schema" class="space-y-4">
+  <h2 class="text-2xl font-semibold">4 · Event schema v1</h2>
+  <div class="grid lg:grid-cols-5 gap-4">
+    <div class="lg:col-span-3 mockup-code text-xs" id="schema-example">
+<pre data-prefix=" "><code>{
+  "event_id": "sha256(source + natural_key)",   // idempotent re-runs
+  "schema": 1,
+  "source": "claude_code",
+  "kind": "assistant_message",
+  "ts": "2026-09-15T07:54:11Z",
+  "project": "DABStep-loop",                     // from cwd / repo path
+  "repo": "nmp-dsci/DABStep-loop",
+  "branch": "main",
+  "session_id": "551c7a2d-…",
+  "model": "claude-haiku-4-5-20251001",
+  "tokens": { "input": 10, "output": 506, "cache_read": 30221,
+              "cache_write": 0, "thinking": 247 },
+  "cost_usd": 0.0032,                            // from enrich/prices.yaml
+  "tools": ["Bash", "Edit"],
+  "class": "building",                           // building | evals | infra | writing | review
+  "meta": { "version": "2.1.259" }
+}</code></pre>
+    </div>
+    <div class="lg:col-span-2 space-y-3 text-sm">
+      <div class="card card-border bg-base-100"><div class="card-body p-4">
+        <h3 class="font-semibold">Kinds by source</h3>
+        <ul class="list-disc pl-5 space-y-1">
+          <li><code>claude_code</code>: session_start · assistant_message · tool_use · session_end</li>
+          <li><code>codex</code>: session_meta · token_count</li>
+          <li><code>git_local</code>: commit · branch_switch</li>
+          <li><code>github</code>: push · branch_created · branch_deleted · pr_opened · pr_merged · review · workflow_run · deployment_status</li>
+          <li><code>aws</code>: apprunner_deploy · ecr_push · daily_cost</li>
+          <li><code>lavish</code>: page_created · page_updated</li>
+          <li><code>evals</code>: run</li>
+        </ul>
+      </div></div>
+      <div class="card card-border bg-base-100" id="privacy-rule"><div class="card-body p-4">
+        <h3 class="font-semibold">Privacy invariant</h3>
+        <p>No field may carry prompt or transcript text. File paths are kept (they're the project signal); prompt text is dropped at the collector, never hashed-and-stored. Tests assert this on every fixture.</p>
+      </div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ───────────────────────── CLASSIFIER ───────────────────────── -->
+<section id="classifier" class="space-y-4">
+  <h2 class="text-2xl font-semibold">5 · "Building vs evals" — how a session gets classified</h2>
+  <p class="opacity-80 max-w-3xl">Two tiers, cheap first. Tier 1 is deterministic and runs in the collector; Tier 2 only runs on sessions Tier 1 can't place, and only over metadata.</p>
+  <div class="grid md:grid-cols-2 gap-4">
+    <div class="card card-border bg-base-100" id="tier1"><div class="card-body p-5">
+      <h3 class="card-title text-base">Tier 1 · path & tool heuristics (free, deterministic)</h3>
+      <ul class="text-sm list-disc pl-5 space-y-1">
+        <li>Files touched by Edit/Write: <code>evals/</code>, <code>tests/</code>, <code>*_eval*.py</code>, <code>runs/</code> → <strong>evals</strong></li>
+        <li><code>src/</code>, <code>frontend/</code>, <code>app/</code> → <strong>building</strong></li>
+        <li><code>infra/</code>, <code>*.tf</code>, <code>Dockerfile</code>, <code>.github/workflows</code> → <strong>infra</strong></li>
+        <li><code>.lavish/</code>, <code>*.md</code>, <code>docs/</code> → <strong>writing</strong></li>
+        <li>Zero edits, many Read/Grep → <strong>review</strong></li>
+        <li>Majority vote per session; ties → Tier 2</li>
+      </ul>
+    </div></div>
+    <div class="card card-border bg-base-100" id="tier2"><div class="card-body p-5">
+      <h3 class="card-title text-base">Tier 2 · Haiku tagger over metadata (cents)</h3>
+      <ul class="text-sm list-disc pl-5 space-y-1">
+        <li>Input: project, branch, tool sequence, file-path list, session length. <strong>Never the prompts.</strong></li>
+        <li>Output: one class + confidence, cached by <code>session_id</code></li>
+        <li>Batched nightly; ≈ 300 tokens/session → negligible cost</li>
+        <li>Class is stored on the event so rollups never re-classify</li>
+      </ul>
+      <p class="text-xs opacity-70 mt-2">Later: a "correct this label" button in the UI writes a <code>label_override</code> event — the same store, no special path.</p>
+    </div></div>
+  </div>
+</section>
+
+<!-- ───────────────────────── APP ───────────────────────── -->
+<section id="app" class="space-y-4">
+  <h2 class="text-2xl font-semibold">6 · The web app — what it shows</h2>
+  <p class="opacity-80 max-w-3xl">Six views. The Overview is the one you open every Monday; the rest are drill-downs. Mock of the Overview below.</p>
+  <div class="mockup-browser border border-base-content/15 bg-base-200" id="overview-mock">
+    <div class="mockup-browser-toolbar"><div class="input text-xs">https://pt-demo.awsapprunner.com/</div></div>
+    <div class="bg-base-100 p-4 space-y-4">
+      <div class="flex flex-wrap items-center gap-2">
+        <span class="font-semibold">productivity-tracker</span>
+        <div role="tablist" class="tabs tabs-border tabs-sm">
+          <a role="tab" class="tab tab-active">Overview</a><a role="tab" class="tab">Agents</a><a role="tab" class="tab">GitHub</a><a role="tab" class="tab">Projects</a><a role="tab" class="tab">Ship log</a><a role="tab" class="tab">Weekly</a>
+        </div>
+        <span class="ml-auto text-xs opacity-60">week of 2026-09-14 · vs prior</span>
+      </div>
+      <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-2 text-center">
+        <div class="stat p-2 bg-base-200 rounded-box"><div class="stat-title text-xs">agent $</div><div class="stat-value text-lg">$61</div><div class="stat-desc text-success">↘ 12%</div></div>
+        <div class="stat p-2 bg-base-200 rounded-box"><div class="stat-title text-xs">out tokens</div><div class="stat-value text-lg">2.1M</div><div class="stat-desc">↗ 8%</div></div>
+        <div class="stat p-2 bg-base-200 rounded-box"><div class="stat-title text-xs">commits</div><div class="stat-value text-lg">47</div><div class="stat-desc">4 repos</div></div>
+        <div class="stat p-2 bg-base-200 rounded-box"><div class="stat-title text-xs">PRs merged</div><div class="stat-value text-lg">6</div><div class="stat-desc">CI 92%</div></div>
+        <div class="stat p-2 bg-base-200 rounded-box"><div class="stat-title text-xs">deploys</div><div class="stat-value text-lg">3</div><div class="stat-desc">App Runner</div></div>
+        <div class="stat p-2 bg-base-200 rounded-box"><div class="stat-title text-xs">lavish pages</div><div class="stat-value text-lg">9</div><div class="stat-desc">3 projects</div></div>
+        <div class="stat p-2 bg-base-200 rounded-box"><div class="stat-title text-xs">build : eval</div><div class="stat-value text-lg">71:29</div><div class="stat-desc">by tokens</div></div>
+      </div>
+      <div class="grid md:grid-cols-3 gap-3">
+        <div class="md:col-span-2 card bg-base-200 p-3">
+          <div class="text-xs font-semibold mb-2">Effort → output, by project (this week)</div>
+          <div class="space-y-2 text-xs">
+            <div class="grid grid-cols-[7rem_minmax(0,1fr)_4rem_4rem] gap-2 items-center opacity-60"><span>project</span><span>agent tokens (out)</span><span class="text-right">commits</span><span class="text-right">deploys</span></div>
+            <div class="grid grid-cols-[7rem_minmax(0,1fr)_4rem_4rem] gap-2 items-center"><span>DABStep-loop</span><progress class="progress progress-primary" value="88" max="100"></progress><span class="text-right mono">19</span><span class="text-right mono">1</span></div>
+            <div class="grid grid-cols-[7rem_minmax(0,1fr)_4rem_4rem] gap-2 items-center"><span>transcript-rag</span><progress class="progress progress-primary" value="61" max="100"></progress><span class="text-right mono">14</span><span class="text-right mono">2</span></div>
+            <div class="grid grid-cols-[7rem_minmax(0,1fr)_4rem_4rem] gap-2 items-center"><span>tau2-loop</span><progress class="progress progress-primary" value="40" max="100"></progress><span class="text-right mono">9</span><span class="text-right mono">0</span></div>
+            <div class="grid grid-cols-[7rem_minmax(0,1fr)_4rem_4rem] gap-2 items-center"><span>data-qa-agent</span><progress class="progress progress-primary" value="22" max="100"></progress><span class="text-right mono">5</span><span class="text-right mono">0</span></div>
+          </div>
+        </div>
+        <div class="card bg-base-200 p-3">
+          <div class="text-xs font-semibold mb-2">Ship log</div>
+          <ul class="timeline timeline-vertical timeline-compact text-xs">
+            <li><div class="timeline-middle">●</div><div class="timeline-end">Tue · deploy transcript-rag-agent demo</div><hr></li>
+            <li><hr><div class="timeline-middle">●</div><div class="timeline-end">Wed · PR #41 merged DABStep-loop</div><hr></li>
+            <li><hr><div class="timeline-middle">●</div><div class="timeline-end">Thu · 3 lavish pages · tau2-loop</div><hr></li>
+            <li><hr><div class="timeline-middle">●</div><div class="timeline-end">Fri · eval run ablation-extended</div></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="grid md:grid-cols-3 gap-3 text-sm">
+    <div class="card card-border bg-base-100" id="view-agents"><div class="card-body p-4"><h3 class="font-semibold">Agents</h3><p>Tokens & $ by day × model × project; build/eval/infra/writing split; session Gantt per day; cache-hit ratio; tool-call mix; Claude Code vs Codex; subagent fan-out.</p></div></div>
+    <div class="card card-border bg-base-100" id="view-github"><div class="card-body p-4"><h3 class="font-semibold">GitHub</h3><p>Commit heatmap; branch lifecycle (created → PR → merged → deployed) with lead time; PR cycle time; CI pass rate & duration; unpushed local commits.</p></div></div>
+    <div class="card card-border bg-base-100" id="view-projects"><div class="card-body p-4"><h3 class="font-semibold">Projects</h3><p>One card per repo: tokens vs commits vs deploys, last deploy, App Runner status, AWS $/month, lavish pages, eval runs. "Cost per merged PR" and "tokens per commit" as the honest efficiency metrics.</p></div></div>
+    <div class="card card-border bg-base-100" id="view-shiplog"><div class="card-body p-4"><h3 class="font-semibold">Ship log</h3><p>A single chronological feed of things that <em>left the laptop</em>: deploys, merged PRs, published pages, eval runs. The antidote to token-count vanity.</p></div></div>
+    <div class="card card-border bg-base-100" id="view-weekly"><div class="card-body p-4"><h3 class="font-semibold">Weekly review</h3><p>Auto-drafted narrative (Haiku over the rollups, not the prompts): what shipped, where effort went, anomalies (a project that ate tokens with no commits).</p></div></div>
+    <div class="card card-border bg-base-100" id="view-demo"><div class="card-body p-4"><h3 class="font-semibold">Public demo mode</h3><p>Same UI over a baked snapshot. Aggregates only — no session ids, no file paths, no branch names beyond <code>main</code>/counts. Portfolio visitors see the shape, not the diary.</p></div></div>
+  </div>
+</section>
+
+<!-- ───────────────────────── PHASES ───────────────────────── -->
+<section id="phases" class="space-y-4">
+  <h2 class="text-2xl font-semibold">7 · Delivery phases</h2>
+  <ul class="steps steps-vertical lg:steps-horizontal w-full text-xs">
+    <li class="step step-primary">P0 scaffold</li><li class="step">P1 collectors</li><li class="step">P2 store</li><li class="step">P3 API</li><li class="step">P4 GitHub</li><li class="step">P5 frontend</li><li class="step">P6 AWS</li><li class="step">P7 enrich</li>
+  </ul>
+  <div class="overflow-x-auto rounded-box border border-base-content/10 bg-base-100">
+    <table class="table table-sm">
+      <thead><tr><th>Phase</th><th>Deliverable</th><th>Done when</th><th>Depends on</th></tr></thead>
+      <tbody>
+        <tr id="p0"><td class="mono">P0</td><td>Repo, CLAUDE.md, AGENTS.md, this plan, branch <code>init</code>, public GitHub repo</td><td>this page is reviewed</td><td>—</td></tr>
+        <tr id="p1"><td class="mono">P1</td><td><code>pt collect</code>: claude_code, codex, git_local, lavish collectors; pydantic schema; offset state; fixtures + tests</td><td><code>pt collect --all</code> over the real laptop emits events with zero duplicates on re-run</td><td>P0</td></tr>
+        <tr id="p2"><td class="mono">P2</td><td>Local + S3 event store; DuckDB rollup SQL (tokens/cost/commits/pages by day×project×class); <code>pt rollup</code></td><td>parquet rollups reproduce hand-computed totals from fixtures</td><td>P1, storage decision D-01</td></tr>
+        <tr id="p3"><td class="mono">P3</td><td>FastAPI <code>/api/*</code> read endpoints + <code>/ingest/*</code> with HMAC; demo-mode switch</td><td>OpenAPI docs; ingest rejects bad signatures in tests</td><td>P2</td></tr>
+        <tr id="p4"><td class="mono">P4</td><td><code>pt github install-hooks</code> + <code>backfill</code>; webhook payload parsers</td><td>every nmp-dsci repo has a hook; backfill matches <code>gh api</code> counts</td><td>P3, D-03</td></tr>
+        <tr id="p5"><td class="mono">P5</td><td>React UI: Overview, Agents, GitHub, Projects, Ship log</td><td>all six views render from <code>/api</code>; Lighthouse ≥ 90</td><td>P3</td></tr>
+        <tr id="p6"><td class="mono">P6</td><td>Terraform bootstrap+demo (copied from transcript-rag-agent, project <code>pt</code>), Dockerfile with baked snapshot, OIDC deploy workflow, Cost Explorer + EventBridge collectors</td><td><code>/api/health</code> green on App Runner; deploy from <code>main</code> push</td><td>P5, <code>aws login</code></td></tr>
+        <tr id="p7"><td class="mono">P7</td><td>Classifier tier 2, price table, weekly narrative, label overrides, eval-run + no-mistakes collectors</td><td>weekly page reads well for two consecutive weeks</td><td>P6</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ───────────────────────── DECISIONS ───────────────────────── -->
+<section id="decisions" class="space-y-6">
+  <h2 class="text-2xl font-semibold">8 · Decisions to make <span class="badge badge-warning align-middle">decide</span></h2>
+  <p class="opacity-80 max-w-3xl">Each form queues one answer. Recommendation is pre-selected; change it if you disagree, then press <em>Queue answer</em>. Press <em>Send to Agent</em> when you're done with all of them.</p>
+
+  <!-- D-01 storage -->
+  <div class="card card-border bg-base-100" id="d01">
+    <div class="card-body p-5 space-y-3">
+      <h3 class="card-title text-base"><span class="kbd-id">D-01</span> Storage engine</h3>
+      <div class="grid md:grid-cols-3 gap-3 text-sm">
+        <div class="card bg-base-200 border border-primary/60" id="d01-a"><div class="card-body p-4">
+          <div class="flex items-center gap-2"><span class="badge badge-primary badge-sm">recommended</span></div>
+          <h4 class="font-semibold">A · S3 JSONL + DuckDB/parquet</h4>
+          <p class="opacity-90"><strong>Fits:</strong> append-only events, analytical reads, multi-instance App Runner, demo snapshot baking.</p>
+          <p class="opacity-90"><strong>Cost:</strong> ≈ $0/mo (S3 pennies). <strong>Ops:</strong> none.</p>
+          <p class="opacity-70"><strong>Pays for it with:</strong> minute-level freshness (rollup cadence), no row-level updates — corrections are new events.</p>
+        </div></div>
+        <div class="card bg-base-200" id="d01-b"><div class="card-body p-4">
+          <h4 class="font-semibold">B · Postgres (Neon / RDS)</h4>
+          <p class="opacity-90"><strong>Fits:</strong> real-time drill-down, ad-hoc SQL in a client, mutable labels.</p>
+          <p class="opacity-90"><strong>Cost:</strong> Neon free tier or RDS ≈ $15/mo. <strong>Ops:</strong> migrations, a secret in App Runner, a vendor.</p>
+          <p class="opacity-70"><strong>Pays for it with:</strong> the demo can no longer be a keyless read-only image.</p>
+        </div></div>
+        <div class="card bg-base-200" id="d01-c"><div class="card-body p-4">
+          <h4 class="font-semibold">C · SQLite + Litestream → S3</h4>
+          <p class="opacity-90"><strong>Fits:</strong> single-file simplicity, works offline.</p>
+          <p class="opacity-90"><strong>Cost:</strong> ≈ $0. <strong>Ops:</strong> restore-on-boot.</p>
+          <p class="opacity-70"><strong>Pays for it with:</strong> single writer — breaks the moment App Runner scales to 2 instances or a webhook and a collector write at once.</p>
+        </div></div>
+      </div>
+      <form data-lavish-question="D-01" class="flex flex-wrap items-center gap-3" onsubmit="event.preventDefault(); const c=new FormData(event.currentTarget).get('d01'); const n=event.currentTarget.querySelector('[name=note]').value; if(c) window.lavish.queuePrompt('D-01 storage decision: use option '+c+'. '+(n?'Note: '+n:''), {tag:'decision', text:'D-01 storage: '+c, element: event.currentTarget, data:{question:'D-01', answer:c, note:n}});">
+        <label class="label cursor-pointer gap-2"><input type="radio" name="d01" value="A (S3 + DuckDB)" class="radio radio-primary radio-sm" checked> A</label>
+        <label class="label cursor-pointer gap-2"><input type="radio" name="d01" value="B (Postgres)" class="radio radio-sm"> B</label>
+        <label class="label cursor-pointer gap-2"><input type="radio" name="d01" value="C (SQLite + Litestream)" class="radio radio-sm"> C</label>
+        <input name="note" class="input input-sm flex-1 min-w-40" placeholder="optional note">
+        <button type="submit" class="btn btn-sm btn-primary">Queue answer</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- D-02 privacy -->
+  <div class="card card-border bg-base-100" id="d02">
+    <div class="card-body p-5 space-y-3">
+      <h3 class="card-title text-base"><span class="kbd-id">D-02</span> What the public demo exposes</h3>
+      <div class="grid md:grid-cols-3 gap-3 text-sm">
+        <div class="card bg-base-200 border border-primary/60"><div class="card-body p-4"><span class="badge badge-primary badge-sm w-fit">recommended</span><h4 class="font-semibold">Aggregates only</h4><p>Counts, tokens, $, per project and per week. No session ids, file paths, branch names, or commit messages. Real data, safe shape.</p></div></div>
+        <div class="card bg-base-200"><div class="card-body p-4"><h4 class="font-semibold">Full detail, live</h4><p>Everything you see privately, public. Strongest portfolio story; leaks working patterns, branch names, project codenames.</p></div></div>
+        <div class="card bg-base-200"><div class="card-body p-4"><h4 class="font-semibold">Synthetic snapshot</h4><p>Demo runs on generated data. Zero leakage; also zero credibility — visitors can tell.</p></div></div>
+      </div>
+      <form data-lavish-question="D-02" class="flex flex-wrap items-center gap-3" onsubmit="event.preventDefault(); const c=new FormData(event.currentTarget).get('d02'); if(c) window.lavish.queuePrompt('D-02 public demo exposure: '+c, {tag:'decision', text:'D-02: '+c, element: event.currentTarget, data:{question:'D-02', answer:c}});">
+        <label class="label cursor-pointer gap-2"><input type="radio" name="d02" value="aggregates only" class="radio radio-primary radio-sm" checked> Aggregates only</label>
+        <label class="label cursor-pointer gap-2"><input type="radio" name="d02" value="full detail live" class="radio radio-sm"> Full detail</label>
+        <label class="label cursor-pointer gap-2"><input type="radio" name="d02" value="synthetic snapshot" class="radio radio-sm"> Synthetic</label>
+        <button type="submit" class="btn btn-sm btn-primary">Queue answer</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- D-03 github capture -->
+  <div class="card card-border bg-base-100" id="d03">
+    <div class="card-body p-5 space-y-3">
+      <h3 class="card-title text-base"><span class="kbd-id">D-03</span> GitHub capture (user account → no org webhook)</h3>
+      <div class="grid md:grid-cols-3 gap-3 text-sm">
+        <div class="card bg-base-200 border border-primary/60"><div class="card-body p-4"><span class="badge badge-primary badge-sm w-fit">recommended</span><h4 class="font-semibold">Per-repo webhooks, scripted</h4><p><code>pt github install-hooks</code> loops over <code>gh repo list nmp-dsci</code> and creates/updates one hook each with the shared HMAC secret. Re-run when a repo is added. Plus REST backfill.</p></div></div>
+        <div class="card bg-base-200"><div class="card-body p-4"><h4 class="font-semibold">GitHub App</h4><p>One webhook URL, auto-covers new repos, fine-grained permissions. Costs a private key to manage and an install flow — right answer at 50+ repos, heavy at 21.</p></div></div>
+        <div class="card bg-base-200"><div class="card-body p-4"><h4 class="font-semibold">Poll only</h4><p>Hourly <code>gh api</code> backfill, no webhooks. Simplest; loses <code>workflow_run</code>/deploy granularity and CI duration precision.</p></div></div>
+      </div>
+      <form data-lavish-question="D-03" class="flex flex-wrap items-center gap-3" onsubmit="event.preventDefault(); const c=new FormData(event.currentTarget).get('d03'); if(c) window.lavish.queuePrompt('D-03 GitHub capture: '+c, {tag:'decision', text:'D-03: '+c, element: event.currentTarget, data:{question:'D-03', answer:c}});">
+        <label class="label cursor-pointer gap-2"><input type="radio" name="d03" value="per-repo webhooks scripted + backfill" class="radio radio-primary radio-sm" checked> Per-repo hooks</label>
+        <label class="label cursor-pointer gap-2"><input type="radio" name="d03" value="GitHub App" class="radio radio-sm"> GitHub App</label>
+        <label class="label cursor-pointer gap-2"><input type="radio" name="d03" value="poll only" class="radio radio-sm"> Poll only</label>
+        <button type="submit" class="btn btn-sm btn-primary">Queue answer</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- D-04 stack -->
+  <div class="card card-border bg-base-100" id="d04">
+    <div class="card-body p-5 space-y-3">
+      <h3 class="card-title text-base"><span class="kbd-id">D-04</span> Stack</h3>
+      <p class="text-sm opacity-80">Recommended: <strong>Python 3.12 + FastAPI + DuckDB</strong> backend, <strong>Vite + React + TS</strong> frontend — identical to transcript-rag-agent / data-qa-agent so Dockerfile, CI and terraform copy over unchanged. Alternative: TypeScript end-to-end (Node + DuckDB-node) — one language, but nothing in the portfolio to copy from.</p>
+      <form data-lavish-question="D-04" class="flex flex-wrap items-center gap-3" onsubmit="event.preventDefault(); const c=new FormData(event.currentTarget).get('d04'); if(c) window.lavish.queuePrompt('D-04 stack: '+c, {tag:'decision', text:'D-04: '+c, element: event.currentTarget, data:{question:'D-04', answer:c}});">
+        <label class="label cursor-pointer gap-2"><input type="radio" name="d04" value="Python FastAPI + React TS" class="radio radio-primary radio-sm" checked> Python + React</label>
+        <label class="label cursor-pointer gap-2"><input type="radio" name="d04" value="TypeScript end-to-end" class="radio radio-sm"> TS end-to-end</label>
+        <button type="submit" class="btn btn-sm btn-primary">Queue answer</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- D-05 tracked batch: v1 sources -->
+  <div class="card card-border bg-base-100" id="d05">
+    <div class="card-body p-5 space-y-3">
+      <h3 class="card-title text-base"><span class="kbd-id">D-05</span> Which sources are in v1? <span class="badge badge-ghost badge-sm">tracked batch</span></h3>
+      <form data-lavish-question="D-05" class="space-y-3" onsubmit="event.preventDefault(); const sel=[...event.currentTarget.querySelectorAll('input[name=items]:checked')].map(i=>({id:i.value,label:i.dataset.label,disposition:'include-in-v1'})); if(sel.length) window.lavish.queuePrompt('D-05: include exactly these sources in v1 and defer the rest. Return an item-by-item receipt that accounts for every submitted ID.', {tag:'tracked-batch', text:'v1 sources: '+sel.map(s=>s.id).join(', '), element: event.currentTarget, data:{question:'D-05', items:sel}});">
+        <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-2 text-sm">
+          <label class="label cursor-pointer justify-start gap-2"><input type="checkbox" name="items" value="S-01" data-label="Claude Code" class="checkbox checkbox-primary checkbox-sm" checked> S-01 Claude Code</label>
+          <label class="label cursor-pointer justify-start gap-2"><input type="checkbox" name="items" value="S-02" data-label="Codex" class="checkbox checkbox-primary checkbox-sm" checked> S-02 Codex</label>
+          <label class="label cursor-pointer justify-start gap-2"><input type="checkbox" name="items" value="S-03" data-label="Local git" class="checkbox checkbox-primary checkbox-sm" checked> S-03 Local git</label>
+          <label class="label cursor-pointer justify-start gap-2"><input type="checkbox" name="items" value="S-04" data-label="GitHub" class="checkbox checkbox-primary checkbox-sm" checked> S-04 GitHub</label>
+          <label class="label cursor-pointer justify-start gap-2"><input type="checkbox" name="items" value="S-05" data-label="AWS" class="checkbox checkbox-primary checkbox-sm" checked> S-05 AWS</label>
+          <label class="label cursor-pointer justify-start gap-2"><input type="checkbox" name="items" value="S-06" data-label="Lavish pages" class="checkbox checkbox-primary checkbox-sm" checked> S-06 Lavish pages</label>
+          <label class="label cursor-pointer justify-start gap-2"><input type="checkbox" name="items" value="S-07" data-label="Eval runs" class="checkbox checkbox-sm"> S-07 Eval runs</label>
+          <label class="label cursor-pointer justify-start gap-2"><input type="checkbox" name="items" value="S-08" data-label="no-mistakes gates" class="checkbox checkbox-sm"> S-08 no-mistakes gates</label>
+          <label class="label cursor-pointer justify-start gap-2"><input type="checkbox" name="items" value="S-09" data-label="Databricks" class="checkbox checkbox-sm"> S-09 Databricks</label>
+          <label class="label cursor-pointer justify-start gap-2"><input type="checkbox" name="items" value="S-10" data-label="Calendar" class="checkbox checkbox-sm"> S-10 Calendar</label>
+        </div>
+        <button type="submit" class="btn btn-sm btn-primary">Queue selected sources</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- D-06 live hooks -->
+  <div class="card card-border bg-base-100" id="d06">
+    <div class="card-body p-5 space-y-3">
+      <h3 class="card-title text-base"><span class="kbd-id">D-06</span> Claude Code live hooks in v1?</h3>
+      <p class="text-sm opacity-80">Hooks in <code>~/.claude/settings.json</code> (currently none configured) would post <code>SessionStart</code>/<code>Stop</code> to the API for a live "working on X now" indicator. They add no token data and a network call to every session. Recommendation: <strong>defer to P7</strong>; the 5-minute collector is fresh enough.</p>
+      <form data-lavish-question="D-06" class="flex flex-wrap items-center gap-3" onsubmit="event.preventDefault(); const c=new FormData(event.currentTarget).get('d06'); if(c) window.lavish.queuePrompt('D-06 Claude Code live hooks: '+c, {tag:'decision', text:'D-06: '+c, element: event.currentTarget, data:{question:'D-06', answer:c}});">
+        <label class="label cursor-pointer gap-2"><input type="radio" name="d06" value="defer to P7" class="radio radio-primary radio-sm" checked> Defer</label>
+        <label class="label cursor-pointer gap-2"><input type="radio" name="d06" value="include in v1" class="radio radio-sm"> Include in v1</label>
+        <button type="submit" class="btn btn-sm btn-primary">Queue answer</button>
+      </form>
+    </div>
+  </div>
+</section>
+
+<!-- ───────────────────────── RISKS ───────────────────────── -->
+<section id="risks" class="space-y-4">
+  <h2 class="text-2xl font-semibold">9 · Risks & failure modes</h2>
+  <div class="grid md:grid-cols-2 gap-3 text-sm">
+    <div role="alert" class="alert alert-soft alert-warning" id="r-prices"><span><strong>Price table drift.</strong> Cost is derived, not observed. Keep <code>enrich/prices.yaml</code> dated per model; rollups store the price version used so history doesn't silently restate.</span></div>
+    <div role="alert" class="alert alert-soft alert-warning" id="r-schema"><span><strong>Claude Code JSONL shape changes</strong> between CLI versions (<code>version</code> is on every line). Parser is version-tolerant: unknown fields ignored, missing <code>usage</code> skipped, one fixture per shape seen.</span></div>
+    <div role="alert" class="alert alert-soft alert-warning" id="r-attrib"><span><strong>Project attribution</strong> relies on <code>cwd</code>. Worktrees, scratchpad dirs and <code>~/git/nmp-projects</code> vs <code>nmp-ai-portfolio</code> moves need a path→project map in config, not heuristics.</span></div>
+    <div role="alert" class="alert alert-soft alert-warning" id="r-vanity"><span><strong>Vanity metrics.</strong> Tokens are an input, not an output. Every view pairs effort with a shipped-thing count; the Ship log is first-class so the app can't become a token leaderboard.</span></div>
+    <div role="alert" class="alert alert-soft alert-error" id="r-privacy"><span><strong>Leak by accident.</strong> A collector that copies a <code>content</code> field is the failure mode. A test scans every fixture-derived event for any string &gt; 200 chars and fails the build.</span></div>
+    <div role="alert" class="alert alert-soft alert-info" id="r-aws"><span><strong>AWS auth.</strong> No credentials active locally right now; bootstrap terraform needs an <code>aws login</code> first. Everything through P5 works without AWS.</span></div>
+  </div>
+</section>
+
+<footer class="text-xs opacity-60 pt-6 border-t border-base-content/10">
+  Plan of record: <code>ai_specs/plan_v1.md</code> · Design system: Tailwind v4 + DaisyUI v5 (Lavish fallback — the project has no UI yet) · Numbers measured 2026-09-16 on this machine.
+</footer>
+</main>
+</body>
+</html>
