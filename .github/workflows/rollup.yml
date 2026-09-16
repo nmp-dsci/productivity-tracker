@@ -1,0 +1,33 @@
+name: Rollup (hourly)
+
+# The cloud half of the pipeline: rebuild parquet rollups from the S3 event
+# store so webhook-ingested events (GitHub, EventBridge) reach the demo
+# without waiting for the laptop. Runs `pt sync pull → pt rollup → push`.
+
+on:
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: ap-southeast-2
+  PT_S3_BUCKET: pt-events-089783391188
+
+jobs:
+  rollup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::089783391188:role/pt-github-deploy
+          aws-region: ${{ env.AWS_REGION }}
+      - uses: astral-sh/setup-uv@v5
+      - run: uv python install 3.12 && uv sync --no-dev
+      - run: uv run pt sync pull
+      - run: uv run pt rollup
+      - run: uv run pt sync push
