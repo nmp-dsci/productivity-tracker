@@ -200,24 +200,23 @@
   .hm-toggle button { font-family: var(--cond); font-weight: 600; font-size: 12px; letter-spacing: .14em; text-transform: uppercase; padding: 8px 16px; background: transparent; color: var(--ink); border: 0; cursor: pointer; }
   .hm-toggle button.on { background: var(--inv); color: var(--inv-ink); }
   .hm-rows { display: grid; gap: 1px; background: var(--line); border: 1px solid var(--line); }
-  .hm-row { display: grid; grid-template-columns: 13rem minmax(0,1fr); background: var(--paper); align-items: center; }
-  .hm-row .meta { padding: 16px 18px; border-right: 1px solid var(--line-2); align-self: stretch; display: grid; align-content: center; gap: 2px; }
-  .hm-row .meta .v { font-family: var(--cond); font-weight: 700; font-size: 28px; line-height: 1; }
+  .hm-row { display: grid; grid-template-columns: 11rem 7rem 7rem minmax(0,1fr); background: var(--paper); align-items: stretch; }
+  .hm-row .meta { padding: 10px 16px; border-right: 1px solid var(--line-2); display: grid; align-content: center; gap: 1px; }
+  .hm-row .sparkcell { padding: 8px 12px; border-right: 1px solid var(--line-2); display: grid; align-items: center; }
+  .hm-row .sparkcell svg { width: 100%; height: 40px; display: block; }
+  .hm-row .growth { padding: 8px 12px; border-right: 1px solid var(--line-2); display: grid; align-content: center; gap: 2px; }
+  .hm-row .meta .v { font-family: var(--cond); font-weight: 700; font-size: 24px; line-height: 1; }
   .hm-row .meta .l { font-family: var(--cond); font-weight: 600; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
-  .hm-row .meta .d { font-size: 11px; color: var(--muted); }
-  .hm-row .grid { padding: 12px 16px; overflow-x: auto; }
+  .hm-row .meta .d { font-size: 10px; color: var(--muted); }
+  .hm-row .grid { padding: 6px 14px; overflow-x: auto; display: grid; align-items: center; }
   .hm-row svg { display: block; }
   .hm-row svg text { font-family: var(--sans); font-size: 9px; fill: var(--muted); }
-  .hm-row .meta { position: relative; overflow: hidden; }
-  .hm-row .meta > * { position: relative; }
-  .hm-row .meta .spark { position: absolute; inset: 0; width: 100%; height: 100%; }
-  .hm-row .growth { display: flex; gap: 12px; margin-top: 6px; }
-  .hm-row .g { font-family: var(--cond); font-weight: 700; font-size: 14px; letter-spacing: .04em; display: inline-flex; align-items: baseline; gap: 5px; }
+  .hm-row .g { font-family: var(--cond); font-weight: 700; font-size: 14px; letter-spacing: .04em; display: inline-flex; align-items: baseline; gap: 5px; white-space: nowrap; }
   .hm-row .g small { font-family: var(--sans); font-weight: 400; font-size: 10px; color: var(--muted); letter-spacing: 0; }
   .hm-row .g.up { color: #6E8A2E; } .hm-row .g.down { color: #B4382E; } .hm-row .g.flat { color: var(--muted); }
   .hm-legend { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); justify-content: flex-end; margin-top: 10px; }
   .hm-legend i { width: 11px; height: 11px; display: inline-block; background: var(--ink); }
-  @media (max-width: 860px) { .hm-row { grid-template-columns: 1fr; } .hm-row .meta { border-right: 0; border-bottom: 1px solid var(--line-2); } }
+  @media (max-width: 860px) { .hm-row { grid-template-columns: 1fr 1fr 1fr; } .hm-row .grid { grid-column: 1 / -1; border-top: 1px solid var(--line-2); } .hm-row .growth { border-right: 0; } }
 
   /* swatches */
   .sw { display: grid; grid-template-columns: repeat(8, 1fr); gap: 1px; background: var(--line); border: 1px solid var(--line); }
@@ -802,9 +801,9 @@
   function level(v,max){ if(!v) return 0; const r=Math.log1p(v)/Math.log1p(max); return r<.2?1:r<.4?2:r<.6?3:r<.8?4:5; }
   function weekly(series){ const w=new Array(cols).fill(0); days.forEach((d,i)=>{ w[Math.floor((lead+i)/7)]+=(series[d]||0); }); return w; }
   function strip(key, cells, labelAt, C, G){
-    const Hc=C<20?36:40, top=14, W=cells.length*(C+G), H=top+Hc;
+    const Hc=C<20?26:28, top=13, W=cells.length*(C+G), H=top+Hc;
     const max=Math.max(1,...cells.map(c=>c.v));
-    let out=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;max-width:1100px" preserveAspectRatio="none" aria-label="${key}">`;
+    let out=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;max-width:1100px;max-height:56px" preserveAspectRatio="none" aria-label="${key}">`;
     out+=`<rect x="0" y="${top}" width="${W-G}" height="${Hc}" fill="var(--ink)" fill-opacity=".04"/>`;
     let lastM=-1;
     cells.forEach((c,i)=>{ const m=+c.d.slice(5,7)-1;
@@ -827,7 +826,7 @@
     w=w.slice(-WEEKS_WIN); const W=200,H=80,n=w.length,max=Math.max(1,...w);
     const pts=w.map((v,i)=>[(i/(n-1))*W, H-(v/max)*H*0.9]);
     const line=pts.map((p,i)=>(i?'L':'M')+p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' ');
-    return `<svg class="spark" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true"><path d="${line} L${W} ${H} L0 ${H} Z" fill="var(--ink)" fill-opacity=".07"/><path d="${line}" fill="none" stroke="var(--ink)" stroke-opacity=".35" stroke-width="1"/></svg>`;
+    return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-label="last 26 weeks"><path d="${line} L${W} ${H} L0 ${H} Z" fill="var(--ink)" fill-opacity=".1"/><path d="${line}" fill="none" stroke="var(--ink)" stroke-opacity=".7" stroke-width="1.5" vector-effect="non-scaling-stroke"/></svg>`;
   }
   function growth(w){ // this week vs last, and last 4 weeks vs prior 4
     const n=w.length; const tw=w[n-1], lw=w[n-2];
@@ -841,7 +840,7 @@
     ROWS.forEach(([key,label,desc])=>{ const series=D.series[key]||{}; const total=Object.values(series).reduce((a,b)=>a+b,0);
       const active=Object.keys(series).length; const w=weekly(series);
       const row=document.createElement('div'); row.className='hm-row'; row.id='hm-'+key;
-      row.innerHTML=`<div class="meta">${spark(w)}<div class="v">${fmt(total)}</div><div class="l">${label}</div><div class="d">${desc} · ${active} active days</div><div class="growth">${growth(w)}</div></div><div class="grid">${grain==='day'?dayStrip(key,series):weekStrip(key,series)}</div>`;
+      row.innerHTML=`<div class="meta"><div class="v">${fmt(total)}</div><div class="l">${label}</div><div class="d">${desc} · ${active} active days</div></div><div class="sparkcell">${spark(w)}</div><div class="growth">${growth(w)}</div><div class="grid">${grain==='day'?dayStrip(key,series):weekStrip(key,series)}</div>`;
       host.appendChild(row); });
   };
   hmSet('day');

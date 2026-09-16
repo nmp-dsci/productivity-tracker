@@ -76,9 +76,10 @@ as `pt-theme`). Only ground/ink/line tokens change; wine and foil are fixed.
 - Colour ramp low → high: `#B4382E → #C9633A → #C9A24A → #8F9A3C → #6E8A2E`
   (red → green); empty cells are transparent with a hairline outline.
 - Intensity is log-scaled **per row** so one outlier day cannot flatten a year.
-- Left meta cell: total (condensed 28px), label, note, growth chips
-  (▲/▼ week-on-week and last-4-weeks vs prior-4, green/red), with a faint
-  26-week sparkline (`--ink` at 7 % fill / 35 % stroke) drawn behind it.
+- Row columns, left to right: meta (total in condensed 24px, label, note),
+  a 26-week sparkline column (`--ink` at 10 % fill / 70 % stroke), a growth
+  column (▲/▼ week-on-week and last-4-weeks vs prior-4, green/red), then the
+  strip. Rows stay ~64px tall.
 
 ## Implementation notes
 
