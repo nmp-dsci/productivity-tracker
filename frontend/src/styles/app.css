@@ -62,7 +62,9 @@ section + section { border-top: 1px solid var(--line-2); }
 .stats > div:last-child { border-right: 0; }
 .stats .v { font-family: var(--cond); font-weight: 700; font-size: 40px; line-height: 1; letter-spacing: 0.02em; }
 .stats .l { margin-top: 8px; font-family: var(--cond); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
-.stats .d { margin-top: 4px; color: var(--muted); font-size: 12px; }
+.stats .d { margin-top: 4px; color: var(--muted); font-size: 12px; font-weight: 600; }
+.stats .d.up { color: var(--green); } .stats .d.down { color: var(--red); } .stats .d.flat { color: var(--muted); }
+.stats .d .muted { font-weight: 400; }
 
 /* cards + tables */
 .cards { display: grid; gap: 1px; background: var(--line); border: 1px solid var(--line); }
