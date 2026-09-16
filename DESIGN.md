@@ -17,6 +17,21 @@ app, every `.lavish/` review page, and any generated report.
 | `--black` | `#0F0F0F` | footer, code blocks |
 | `--magenta` `--gold` `--green` `--cocoa` | `#B4386E` `#C9A24A` `#6E8A2E` `#4A2C22` | multi-series data, in that order |
 
+### Dark mode
+
+Follows `prefers-color-scheme` by default; a header toggle overrides it
+(`data-theme="dark" | "light"` on `<html>`, persisted in `localStorage`
+as `pt-theme`). Only ground/ink/line tokens change; wine and foil are fixed.
+
+| token | dark value |
+|---|---|
+| `--bg` / `--paper` | `#141414` / `#1C1C1C` |
+| `--ink` / `--ink-2` / `--muted` | `#EFEFEF` / `#CFCFCF` / `#9A9A9A` |
+| `--line` / `--line-2` | `#3A3A3A` / `#2A2A2A` |
+| `--inv` / `--inv-ink` | `#2C2C2C` / `#FFFFFF` (primary button, dark cards, hot nodes — never bind these to `--ink`) |
+| `--code-bg` / `--pill` / `--chrome` | `#2A2A2A` / `#2E2E2E` / `#232323` |
+| `--gold-ink` | `#C9A24A` (light: `#8A6A22`) |
+
 ## Type
 
 - Headings: **Barlow Condensed 700**, uppercase, `letter-spacing: .04–.06em`
