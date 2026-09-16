@@ -16,6 +16,12 @@ it cost in agent effort, and how is that trending?*
   assistant messages carrying `usage`. Lifetime: 71.4M output tokens, 8.25B
   cache-read, 318M cache-write, 3.9M uncached input. Models: haiku-4-5 (25k
   msgs), sonnet-5 (16.5k), opus-5 (16.2k), fable-5 (8.6k), fable-5-1 (3k).
+- **Retention finding:** Claude Code purges transcripts after 30 days
+  (`cleanupPeriodDays` unset → default 30). Transcripts on disk start
+  2026-08-13. `~/.claude/history.jsonl` (3,919 prompts since Feb 2026, with
+  sessionId/project/timestamp) survives and backfills sessions + prompts;
+  tokens older than 30 days are unrecoverable. Raise `cleanupPeriodDays`
+  and run the collector every 5 min.
 - `~/.codex/sessions/`: 92 session files with `token_count` events.
 - `.lavish/` in 15 portfolio repos: 195 review pages.
 - GitHub: `nmp-dsci` is a user account (no org webhooks). Some repos only have a
