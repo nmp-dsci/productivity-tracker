@@ -14,7 +14,7 @@ beforeEach(() => {
 
 test('home renders insights above the trends and flags demo mode', async () => {
   render(<App />);
-  expect(await screen.findByText('+2 (+20%)')).toBeInTheDocument();
+  expect(await screen.findByText('▲ 20%')).toBeInTheDocument();
   expect((await screen.findAllByText('Commits')).length).toBe(2);
   expect(screen.getByText('public demo · aggregates only')).toBeInTheDocument();
   expect(screen.getByLabelText('Commits')).toBeInTheDocument(); // the strip svg
