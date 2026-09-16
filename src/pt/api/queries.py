@@ -161,7 +161,7 @@ def window_summary(con: duckdb.DuckDBPyConnection, start: date, end: date) -> di
                sum(CASE WHEN source='lavish' AND kind='page_created' THEN n ELSE 0 END) AS pages,
                sum(CASE WHEN (source='aws' AND kind='apprunner_deploy') OR (source='github' AND kind='deployment_status') THEN n ELSE 0 END) AS deploys
         FROM daily WHERE day BETWEEN ? AND ? AND project IS NOT NULL
-        GROUP BY 1 HAVING tok_out > 0 OR commits > 0 ORDER BY tok_out DESC LIMIT 12""",
+        GROUP BY 1 HAVING tok_out > 0 OR commits > 0 ORDER BY commits DESC, tok_out DESC LIMIT 40""",
         [start, end],
     )
     split = _rows(
