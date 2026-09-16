@@ -22,7 +22,8 @@ The public demo deployment (App Runner, like `transcript-rag-agent`) serves an
 
 ## Instructions for Claude
 
-- Read `README.md`, `AGENTS.md` and `ai_specs/plan_v1.md` before making changes.
+- Read `README.md`, `AGENTS.md`, `DESIGN.md` and `ai_specs/plan_v1.md` before making changes.
+- All UI (React app, lavish pages, reports) follows `DESIGN.md` — no component libraries.
 - Keep implementations scoped to the requested task; prefer boring, testable modules.
 - Every collector is **pull-first and idempotent**: re-running it must never
   duplicate events. Events carry a deterministic `event_id`.

@@ -5,7 +5,8 @@ how much agent effort it took, and what actually shipped — across coding
 agents, GitHub, AWS and the review pages generated along the way.
 
 > Status: **scaffold**. The design is in [`ai_specs/plan_v1.md`](ai_specs/plan_v1.md);
-> the review page is `.lavish/s00_implementation-plan.html`.
+> the review page is `.lavish/s00_implementation-plan.html`; the visual
+> system is [`DESIGN.md`](DESIGN.md).
 
 ## What it tracks
 
