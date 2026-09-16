@@ -155,11 +155,10 @@ def run(
         try:
             text = complete(SYSTEM, "\n".join(_describe(c) for c in chunk), max_tokens=4000)
         except Exception as e:  # noqa: BLE001 — any provider error ends the run, keeping progress
-            return f"tagged {n} sessions ({len(heuristics)} heuristic, {modelled} via model); model stopped: {type(e).__name__}"
+            return f"tagged {n + modelled} sessions ({n} heuristic, {modelled} via model); model stopped: {type(e).__name__}"
         labels = [
             label_event(sid, cls, conf, "claude", now)
             for sid, (cls, conf) in parse_labels(text).items()
         ]
         modelled += store.append(labels)
-        n += modelled
-    return f"tagged {n} sessions ({len(heuristics)} heuristic, {modelled} via model)"
+    return f"tagged {n + modelled} sessions ({n} heuristic, {modelled} via model)"

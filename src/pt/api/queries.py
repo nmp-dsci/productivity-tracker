@@ -38,8 +38,12 @@ _METRIC_SQL: dict[str, str] = {
     "lavish": "SELECT day, sum(n) v FROM daily WHERE source='lavish' AND kind='page_created' GROUP BY 1",
     "commits": "SELECT day, sum(n) v FROM daily WHERE source='git_local' AND kind='commit' GROUP BY 1",
     "prs": "SELECT day, sum(n) v FROM daily WHERE source='github' AND kind='pr_merged' GROUP BY 1",
-    "deploys": """SELECT day, sum(n) v FROM daily WHERE (source='aws' AND kind='apprunner_deploy')
-                  OR (source='github' AND kind='deployment_status') GROUP BY 1""",
+    # App Runner operations, GitHub deployment statuses, and successful CI
+    # workflows whose name says deploy (the sibling repos deploy from Actions).
+    "deploys": """SELECT day, count(*) v FROM shiplog WHERE (source='aws' AND kind='apprunner_deploy')
+                  OR (source='github' AND kind='deployment_status' AND status='success')
+                  OR (source='github' AND kind='workflow_run' AND status='success' AND lower(title) LIKE '%deploy%')
+                  GROUP BY 1""",
     "projects": """SELECT day, count(DISTINCT project) v FROM daily
                    WHERE project IS NOT NULL AND ((source='git_local' AND kind='commit')
                    OR (source IN ('claude_code','codex') AND kind IN ('assistant_message','token_count'))) GROUP BY 1""",

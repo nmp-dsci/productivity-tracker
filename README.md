@@ -71,7 +71,9 @@ Keep it fresh: `scripts/install_launchd.sh` installs a LaunchAgent that runs
 `pt collect && pt rollup` (and `pt sync push` when `PT_S3_BUCKET` is set)
 every 5 minutes.
 
-Enrichment (optional, `uv sync --group enrich`, needs `ANTHROPIC_API_KEY`):
+Enrichment (optional, `uv sync --group enrich`). Bills the **Claude subscription**
+when `CLAUDE_CODE_OAUTH_TOKEN` is set (via the Claude Agent SDK), otherwise
+`ANTHROPIC_API_KEY`; force one with `PT_LLM_BACKEND=subscription|api`:
 
 ```bash
 uv run pt tag           # tier-2 classifier for sessions tier 1 left unknown (metadata only)
@@ -90,6 +92,7 @@ uv run pt weekly        # weekly narrative → data/narratives/<week>.md → /ap
 | `PT_S3_BUCKET` | – | enables `pt sync` and S3 writes from `/ingest/*` |
 | `PT_INGEST_SECRET` | – | GitHub HMAC secret / EventBridge bearer |
 | `PT_DEMO_MODE` | `0` | read-only, aggregates only |
+| `PT_LLM_BACKEND` | `subscription` if `CLAUDE_CODE_OAUTH_TOKEN` set, else `api` | who pays for `pt tag` / `pt weekly` |
 | `PT_TAGGER_MODEL` / `PT_NARRATIVE_MODEL` | `claude-haiku-4-5` / `claude-opus-5` | enrichment models |
 
 ## Deploy (AWS)
