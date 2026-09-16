@@ -6,8 +6,13 @@ WITH msgs AS (
 ), cls AS (
   SELECT session_id, cls, sum(tok_out) AS w
   FROM msgs WHERE cls <> 'unknown' GROUP BY 1, 2
+), labels AS (
+  SELECT session_id, arg_max(cls, ts) AS cls FROM events WHERE kind = 'label' GROUP BY 1
 ), best AS (
-  SELECT session_id, arg_max(cls, w) AS cls FROM cls GROUP BY 1
+  SELECT c.session_id, coalesce(any_value(l.cls), arg_max(c.cls, c.w)) AS cls
+  FROM cls c LEFT JOIN labels l USING (session_id) GROUP BY 1
+  UNION ALL
+  SELECT session_id, cls FROM labels WHERE session_id NOT IN (SELECT session_id FROM cls)
 )
 SELECT
   m.session_id, any_value(m.source) AS source,

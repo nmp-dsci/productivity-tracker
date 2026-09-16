@@ -20,7 +20,9 @@ def test_rollups_reproduce_hand_counts(settings: Settings, state: State) -> None
     out = con.execute(
         f"SELECT sum(tok_out) FROM {daily} WHERE source='claude_code' AND kind='assistant_message'"
     ).fetchone()
-    assert out and out[0] == 500 + 50 + 20  # msg_1 counted once despite three lines
+    assert (
+        out and out[0] == 500 + 50 + 20 + 900
+    )  # msg_1 counted once despite three lines; sess-3 adds 3×300
     day = con.execute(
         f"SELECT day FROM {daily} WHERE source='claude_code' AND kind='assistant_message' LIMIT 1"
     ).fetchone()

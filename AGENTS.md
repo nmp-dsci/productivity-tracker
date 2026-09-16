@@ -7,7 +7,8 @@ activity, deployments, generated review pages — into a reviewable
 productivity timeline. Design of record: `ai_specs/plan_v1.md`
 (rendered for review in `.lavish/s00_implementation-plan.html`).
 
-Current status: **scaffold** (branch `init`). No source code yet.
+Current status: **built** (branch `init`): collectors, rollups, API, frontend,
+infra and enrichment run end to end. See `README.md` for commands.
 
 ## Working Guidelines
 
@@ -26,15 +27,24 @@ Current status: **scaffold** (branch `init`). No source code yet.
 ## Expected Architecture Direction
 
 ```text
-laptop                      cloud (ap-southeast-2)
-──────                      ──────────────────────
-pt collect ──► events ──►  S3 events bucket ──► DuckDB rollups ──► FastAPI /api ──► React UI
-  claude_code                ▲                                       ▲
-  codex                      │ POST /ingest/github (HMAC)            │ demo image bakes
-  git_local        GitHub webhooks (per-repo)                        │ a parquet snapshot
-  lavish           EventBridge → App Runner deploy events            │
-  aws (cost, apprunner)
+src/pt/collectors/*   one module per source, pull-first, idempotent (event_id)
+src/pt/store/         local JSONL store, S3 mirror, DuckDB rollups (queries/*.sql)
+src/pt/api/           FastAPI: queries.py over parquet, app.py routes + demo redaction
+src/pt/enrich/        prices.yaml, tier-1 classify, tier-2 tagger, weekly narrative
+frontend/src/         views/*.tsx, ui/index.tsx, styles/tokens.css (DESIGN.md)
+infra/terraform/      bootstrap (bucket, OIDC role, EventBridge) + demo (ECR, App Runner)
 ```
+
+Gotchas learned from the real data — keep them true:
+
+- Claude Code writes one line per content block with the same `message.id`
+  and `usage`; fold per message or tokens are 2–3× overcounted.
+- Transcripts are purged after 30 days; `history.jsonl` is the durable source
+  for sessions and prompts. Never make it the source for tokens.
+- `cwd` can be a scratchpad (`/private/tmp/claude-*/<slug>/…`) or a
+  no-mistakes worktree (`~/.no-mistakes/worktrees/<gate>/…`); both resolve
+  in `Settings.project_from_path`.
+- Labels from `pt tag` are events (`kind = label`); rollups prefer them.
 
 ## Quality Bar
 

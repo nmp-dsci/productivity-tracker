@@ -27,7 +27,9 @@ def test_claude_folds_multiline_messages_and_skips_synthetic(
     assert m1.project == "alpha" and m1.branch == "main"
     assert m1.cost_usd and m1.cost_usd > 0
     assert all(e.model != "<synthetic>" for e in msgs)
-    assert len(msgs) == 3  # msg_1, msg_2, subagent msg_sub_1
+    assert (
+        len([m for m in msgs if m.session_id == "sess-1"]) == 3
+    )  # msg_1, msg_2, subagent msg_sub_1
     sub = next(e for e in msgs if e.meta.get("subagent"))
     assert sub.project == "alpha"  # scratchpad slug resolved
 

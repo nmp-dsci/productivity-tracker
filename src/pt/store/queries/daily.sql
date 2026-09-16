@@ -1,15 +1,19 @@
 -- One row per day × project × source × kind × class × model. Every view in the
 -- app is a slice of this table; the demo image bakes it as parquet.
-WITH session_cls AS (
+WITH labels AS (
+  -- tier-2 labels (pt tag) are events too; the latest one per session wins
+  SELECT session_id, arg_max(cls, ts) AS cls FROM events WHERE kind = 'label' GROUP BY 1
+), majority AS (
   -- token-weighted majority class per session, used for messages that carry
   -- no path/command signal of their own
   SELECT session_id, arg_max(cls, w) AS cls FROM (
     SELECT session_id, cls, sum(tok_out) + count(*) AS w FROM events
-    WHERE session_id IS NOT NULL AND cls <> 'unknown' GROUP BY 1, 2
+    WHERE session_id IS NOT NULL AND cls <> 'unknown' AND kind <> 'label' GROUP BY 1, 2
   ) GROUP BY 1
 ), ev AS (
-  SELECT e.* REPLACE (coalesce(nullif(e.cls, 'unknown'), s.cls, 'unknown') AS cls)
-  FROM events e LEFT JOIN session_cls s USING (session_id)
+  SELECT e.* REPLACE (coalesce(l.cls, nullif(e.cls, 'unknown'), m.cls, 'unknown') AS cls)
+  FROM events e LEFT JOIN labels l USING (session_id) LEFT JOIN majority m USING (session_id)
+  WHERE e.kind <> 'label'
 )
 SELECT
   day, project, source, kind, cls,
