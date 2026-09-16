@@ -4,7 +4,7 @@ import { Eyebrow, Head, Status, useFetch } from '../ui';
 
 const money = new Set(['cost_usd']);
 // Session counts stay in the strips below; the top line is about work and output.
-const HIDE = new Set(['claude_sessions', 'automated_sessions', 'codex_sessions']);
+const HIDE = new Set(['claude_sessions', 'automated_sessions', 'codex_sessions', 'projects']);
 const show = (key: string, v: number) => (money.has(key) ? usd(v) : fmt(v));
 
 /** Rolling last 7 days vs the 7 before: the stat strip of every metric with a
