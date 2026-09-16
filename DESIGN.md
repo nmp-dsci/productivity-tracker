@@ -68,6 +68,15 @@ as `pt-theme`). Only ground/ink/line tokens change; wine and foil are fixed.
 - Pair every effort metric (tokens, $) with an output metric (commits,
   deploys, pages) in the same row — never show effort alone.
 
+## Heatmaps (Trends view)
+
+- GitHub-contributions grammar: 11px cells, 2px gutters; 7 × 53 grid for
+  days (Monday top), 1 × 52 strip for weeks; month labels above.
+- One colour — ink at opacities `.12 / .3 / .55 / .8 / 1`; empty cells are
+  hairline outlines. The row label carries the metric, never the hue.
+- Intensity is log-scaled **per row** so one outlier day cannot flatten a year.
+- Each row has a left meta cell: total (condensed 28px), metric label, note.
+
 ## Implementation notes
 
 - No component library (MUI/DaisyUI defaults fight the look). Small set in
