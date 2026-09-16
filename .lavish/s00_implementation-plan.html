@@ -416,8 +416,8 @@
         <tr id="src-github"><td class="id">S-04</td><td><strong>GitHub</strong></td><td>push, branch created/deleted, PR opened/merged/closed, review, <code>workflow_run</code> (CI pass/fail, duration), <code>deployment_status</code></td><td>Push: per-repo webhook (<code>pt github install-hooks</code>, HMAC). Pull: <code>pt github backfill</code> via REST.</td><td>github.com/nmp-dsci</td><td><span class="tag yes">yes</span></td></tr>
         <tr id="src-aws"><td class="id">S-05</td><td><strong>AWS</strong></td><td>App Runner services + deploy operations, ECR pushes, daily cost by <code>project</code> tag</td><td>Push: EventBridge → <code>/ingest/aws</code>. Pull: Cost Explorer daily, App Runner tag scan.</td><td>acct 089783391188</td><td><span class="tag yes">yes</span></td></tr>
         <tr id="src-lavish"><td class="id">S-06</td><td><strong>Lavish pages</strong></td><td>page created/updated per project (title, size, sNN index, mtime) — a proxy for design/review effort</td><td>Pull: filesystem scan of <code>**/.lavish/sNN_*.html</code></td><td>195 pages · 15 repos</td><td><span class="tag yes">yes</span></td></tr>
-        <tr id="src-evals"><td class="id">S-07</td><td><strong>Eval runs</strong></td><td>run per project (ts, config, headline metric) from <code>evals/runs/*.json</code>, <code>runs/</code>, MLflow</td><td>Pull: per-repo adapter (each repo has its own format)</td><td>transcript-rag-agent, DABStep-loop, tau2-loop, ConvFinQA…</td><td><span class="tag next">v1.1</span></td></tr>
-        <tr id="src-nm"><td class="id">S-08</td><td><strong>no-mistakes gates</strong></td><td>gate runs (repo, branch, review/tests/lint pass-fail, PR created)</td><td>Pull: <code>~/.no-mistakes/{logs,evidence}</code></td><td>local daemon</td><td><span class="tag next">v1.1</span></td></tr>
+        <tr id="src-evals"><td class="id">S-07</td><td><strong>Eval runs</strong></td><td>run per project (ts, config, headline metric) from <code>evals/runs/*.json</code>, <code>runs/</code>, MLflow</td><td>Pull: per-repo adapter (each repo has its own format)</td><td>transcript-rag-agent, DABStep-loop, tau2-loop, ConvFinQA…</td><td><span class="tag yes">yes</span></td></tr>
+        <tr id="src-nm"><td class="id">S-08</td><td><strong>no-mistakes gates</strong></td><td>gate runs (repo, branch, review/tests/lint pass-fail, PR created)</td><td>Pull: <code>~/.no-mistakes/{logs,evidence}</code></td><td>local daemon</td><td><span class="tag yes">yes</span></td></tr>
         <tr id="src-dbx"><td class="id">S-09</td><td>Databricks</td><td>DAB deploys, job runs (databricks-propertyiq, databricks-sa-coding)</td><td>Pull: bundle / jobs API</td><td>workspace nmp-dsci</td><td><span class="tag later">later</span></td></tr>
         <tr id="src-cal"><td class="id">S-10</td><td>Calendar / focus time</td><td>meeting load vs deep-work blocks, to normalise output per available hour</td><td>Pull: Google Calendar API</td><td>—</td><td><span class="tag later">later</span></td></tr>
         <tr id="src-site"><td class="id">S-11</td><td>Portfolio site</td><td>publishes to <code>nmp-dsci.github.io</code></td><td>Covered by S-03/S-04 — a project tag</td><td>—</td><td><span class="tag yes">free</span></td></tr>
@@ -550,7 +550,7 @@
     </div>
   </div>
   <div class="cards c3" style="margin-top:36px">
-    <div class="card" id="view-trends"><h4>Trends</h4><p style="font-size:13px">Landing view. Heatmap row per metric — sessions, tokens, $, lavish pages, commits, PRs, deploys, projects active — rolling 90 days or rolling 26 weeks, intensity = volume, log-scaled per row. Click a cell to filter every other view to that day/week.</p></div>
+    <div class="card" id="view-trends"><h4>Trends</h4><p style="font-size:13px">Landing view. Heatmap row per metric — sessions, tokens, $, lavish pages, commits, PRs, deploys, projects active — rolling 90 days or rolling 26 weeks, intensity = volume, log-scaled per row. Hover a cell for a real tooltip — date, value, delta vs the row's 4-week median, top project that day — not just the browser title you get on this page. Click a cell to filter every other view to that day/week.</p></div>
     <div class="card" id="view-agents"><h4>Agents</h4><p style="font-size:13px">Tokens & $ by day × model × project; build/eval/infra/writing split; session Gantt per day; cache-hit ratio; tool-call mix; Claude Code vs Codex; subagent fan-out.</p></div>
     <div class="card" id="view-github"><h4>GitHub</h4><p style="font-size:13px">Commit heatmap; branch lifecycle (created → PR → merged → deployed) with lead time; PR cycle time; CI pass rate & duration; unpushed local commits.</p></div>
     <div class="card" id="view-projects"><h4>Projects</h4><p style="font-size:13px">One card per repo: tokens vs commits vs deploys, last deploy, App Runner status, AWS $/month, lavish pages, eval runs. "Cost per merged PR" and "tokens per commit" as the honest efficiency metrics.</p></div>
@@ -638,13 +638,13 @@
       <thead><tr><th>Phase</th><th>Deliverable</th><th>Done when</th><th>Depends on</th></tr></thead>
       <tbody>
         <tr id="p0"><td class="id">P0</td><td>Repo, CLAUDE.md, AGENTS.md, DESIGN.md, this plan, branch <code>init</code>, public GitHub repo</td><td>this page is reviewed</td><td>—</td></tr>
-        <tr id="p1"><td class="id">P1</td><td><code>pt collect</code>: claude_code, codex, git_local, lavish collectors; pydantic schema; offset state; fixtures + tests</td><td><code>pt collect --all</code> over the real laptop emits events with zero duplicates on re-run</td><td>P0</td></tr>
-        <tr id="p2"><td class="id">P2</td><td>Local + S3 event store; DuckDB rollup SQL (tokens/cost/commits/pages by day×project×class); <code>pt rollup</code></td><td>parquet rollups reproduce hand-computed totals from fixtures</td><td>P1, D-01</td></tr>
+        <tr id="p1"><td class="id">P1</td><td><code>pt collect</code>: claude_code (+ history.jsonl backfill), codex, git_local, lavish, evals, no-mistakes collectors; event schema; offset state; fixtures + tests; 5-min launchd job</td><td><code>pt collect --all</code> over the real laptop emits events with zero duplicates on re-run</td><td>P0</td></tr>
+        <tr id="p2"><td class="id">P2</td><td>Local + S3 event store; DuckDB rollup SQL (tokens/cost/commits/pages by day×project×class); <code>pt rollup</code></td><td>parquet rollups reproduce hand-computed totals from fixtures</td><td>P1</td></tr>
         <tr id="p3"><td class="id">P3</td><td>FastAPI <code>/api/*</code> read endpoints incl. <code>/api/trends?grain=day|week&amp;window=90|26</code> + <code>/ingest/*</code> with HMAC; demo-mode switch</td><td>OpenAPI docs; ingest rejects bad signatures in tests</td><td>P2</td></tr>
-        <tr id="p4"><td class="id">P4</td><td><code>pt github install-hooks</code> + <code>backfill</code>; webhook payload parsers</td><td>every nmp-dsci repo has a hook; backfill matches <code>gh api</code> counts</td><td>P3, D-03</td></tr>
+        <tr id="p4"><td class="id">P4</td><td><code>pt github install-hooks</code> + <code>backfill</code>; webhook payload parsers</td><td>every nmp-dsci repo has a hook; backfill matches <code>gh api</code> counts</td><td>P3</td></tr>
         <tr id="p5"><td class="id">P5</td><td>React UI in the design system above: Trends (landing), Overview, Agents, GitHub, Projects, Ship log, Weekly</td><td>all six views render from <code>/api</code>; Lighthouse ≥ 90</td><td>P3</td></tr>
         <tr id="p6"><td class="id">P6</td><td>Terraform bootstrap+demo (from transcript-rag-agent, project <code>pt</code>), Dockerfile with baked snapshot, OIDC deploy workflow, Cost Explorer + EventBridge collectors</td><td><code>/api/health</code> green on App Runner; deploy on push to <code>main</code></td><td>P5, <code>aws login</code></td></tr>
-        <tr id="p7"><td class="id">P7</td><td>Classifier tier 2, price table, weekly narrative, label overrides, eval-run + no-mistakes collectors</td><td>weekly page reads well two weeks running</td><td>P6</td></tr>
+        <tr id="p7"><td class="id">P7</td><td>Classifier tier 2, price table, weekly narrative, label overrides, Claude Code live hooks (D-06)</td><td>weekly page reads well two weeks running</td><td>P6</td></tr>
       </tbody>
     </table>
   </div>
@@ -653,65 +653,40 @@
 <!-- ───────────── DECISIONS ───────────── -->
 <section id="decisions" style="background:var(--paper);border-top:1px solid var(--line-2);border-bottom:1px solid var(--line-2)">
   <div class="head">
-    <div class="eyebrow pill">Decide</div>
-    <h2>Six decisions</h2>
-    <p class="lede">Each form queues one answer. The recommendation is pre-selected; change it if you disagree, press <em>Queue answer</em>, then <em>Send to Agent</em> when done.</p>
+    <div class="eyebrow pill">Decided 2026-09-16 · one open</div>
+    <h2>Decisions</h2>
+    <p class="lede">Five of six are settled and now bind the plan. D-04 (stack) is still open — see the sharpened comparison below and queue your answer.</p>
+  </div>
+  <div class="tbl" id="decision-log" style="margin-bottom:24px">
+    <table>
+      <thead><tr><th>ID</th><th>Decision</th><th>Answer</th><th>Consequence in the plan</th></tr></thead>
+      <tbody>
+        <tr><td class="id">D-01</td><td>Storage engine</td><td><span class="tag yes">A · S3 JSONL + DuckDB/parquet</span></td><td>P2 builds the S3 event store + DuckDB rollups; no database anywhere; demo image bakes parquet.</td></tr>
+        <tr><td class="id">D-02</td><td>Public demo exposure</td><td><span class="tag yes">aggregates only</span></td><td>Demo mode strips session ids, file paths, branch names; a test asserts the demo API never returns them.</td></tr>
+        <tr><td class="id">D-03</td><td>GitHub capture</td><td><span class="tag yes">per-repo webhooks, scripted + backfill</span></td><td>P4 ships <code>pt github install-hooks</code> and <code>backfill</code>; GitHub App deferred.</td></tr>
+        <tr><td class="id">D-04</td><td>Stack</td><td><span class="tag decide">open</span></td><td>See below.</td></tr>
+        <tr><td class="id">D-05</td><td>Sources in v1</td><td><span class="tag yes">S-01 … S-08</span></td><td>Eval runs (S-07) and no-mistakes gates (S-08) move from v1.1 into P1. S-09 Databricks and S-10 Calendar deferred; S-11 comes free.</td></tr>
+        <tr><td class="id">D-06</td><td>Claude Code live hooks</td><td><span class="tag yes">defer to P7</span></td><td>5-minute collector is the only agent path in v1.</td></tr>
+      </tbody>
+    </table>
   </div>
   <div style="display:grid;gap:24px">
 
-    <div class="card" style="border:1px solid var(--line)" id="d01">
-      <div class="eyebrow">D-01</div>
-      <h3>Storage engine</h3>
-      <div class="cards c3" style="margin-top:6px">
-        <div class="card rec" id="d01-a"><span class="tag rec" style="width:fit-content">recommended</span><h4>A · S3 JSONL + DuckDB / parquet</h4><p style="font-size:13px"><strong>Fits:</strong> append-only events, analytical reads, multi-instance App Runner, snapshot baking.<br><strong>Cost:</strong> ≈ $0/mo. <strong>Ops:</strong> none.</p><p class="small muted"><strong>Pays with:</strong> minute-level freshness, no row updates — corrections are new events.</p></div>
-        <div class="card" id="d01-b"><h4>B · Postgres (Neon / RDS)</h4><p style="font-size:13px"><strong>Fits:</strong> real-time drill-down, ad-hoc SQL, mutable labels.<br><strong>Cost:</strong> free tier or ≈ $15/mo. <strong>Ops:</strong> migrations, a secret, a vendor.</p><p class="small muted"><strong>Pays with:</strong> the demo can no longer be a keyless read-only image.</p></div>
-        <div class="card" id="d01-c"><h4>C · SQLite + Litestream → S3</h4><p style="font-size:13px"><strong>Fits:</strong> single-file simplicity, offline.<br><strong>Cost:</strong> ≈ $0. <strong>Ops:</strong> restore-on-boot.</p><p class="small muted"><strong>Pays with:</strong> single writer — breaks at 2 App Runner instances or a webhook + collector writing at once.</p></div>
-      </div>
-      <form class="q" data-lavish-question="D-01" onsubmit="event.preventDefault(); const c=new FormData(event.currentTarget).get('d01'); const n=event.currentTarget.querySelector('[name=note]').value; if(c) window.lavish.queuePrompt('D-01 storage decision: use option '+c+'. '+(n?'Note: '+n:''), {tag:'decision', text:'D-01 storage: '+c, element: event.currentTarget, data:{question:'D-01', answer:c, note:n}});">
-        <label><input type="radio" name="d01" value="A (S3 + DuckDB)" checked> A</label>
-        <label><input type="radio" name="d01" value="B (Postgres)"> B</label>
-        <label><input type="radio" name="d01" value="C (SQLite + Litestream)"> C</label>
-        <input type="text" name="note" placeholder="optional note">
-        <button type="submit" class="btn sm">Queue answer <span class="arr">→</span></button>
-      </form>
-    </div>
 
-    <div class="card" style="border:1px solid var(--line)" id="d02">
-      <div class="eyebrow">D-02</div>
-      <h3>What the public demo exposes</h3>
-      <div class="cards c3" style="margin-top:6px">
-        <div class="card rec"><span class="tag rec" style="width:fit-content">recommended</span><h4>Aggregates only</h4><p style="font-size:13px">Counts, tokens, $, per project and week. No session ids, file paths, branch names, commit messages. Real data, safe shape.</p></div>
-        <div class="card"><h4>Full detail, live</h4><p style="font-size:13px">Everything you see privately, public. Strongest portfolio story; leaks working patterns and project codenames.</p></div>
-        <div class="card"><h4>Synthetic snapshot</h4><p style="font-size:13px">Demo runs on generated data. Zero leakage; also zero credibility.</p></div>
-      </div>
-      <form class="q" data-lavish-question="D-02" onsubmit="event.preventDefault(); const c=new FormData(event.currentTarget).get('d02'); if(c) window.lavish.queuePrompt('D-02 public demo exposure: '+c, {tag:'decision', text:'D-02: '+c, element: event.currentTarget, data:{question:'D-02', answer:c}});">
-        <label><input type="radio" name="d02" value="aggregates only" checked> Aggregates only</label>
-        <label><input type="radio" name="d02" value="full detail live"> Full detail</label>
-        <label><input type="radio" name="d02" value="synthetic snapshot"> Synthetic</label>
-        <button type="submit" class="btn sm">Queue answer <span class="arr">→</span></button>
-      </form>
-    </div>
 
-    <div class="card" style="border:1px solid var(--line)" id="d03">
-      <div class="eyebrow">D-03</div>
-      <h3>GitHub capture · user account, no org webhook</h3>
-      <div class="cards c3" style="margin-top:6px">
-        <div class="card rec"><span class="tag rec" style="width:fit-content">recommended</span><h4>Per-repo webhooks, scripted</h4><p style="font-size:13px"><code>pt github install-hooks</code> loops over <code>gh repo list nmp-dsci</code>, creates/updates one hook each with a shared HMAC secret. Re-run when a repo is added. Plus REST backfill.</p></div>
-        <div class="card"><h4>GitHub App</h4><p style="font-size:13px">One webhook URL, auto-covers new repos, fine-grained permissions. Costs a private key and an install flow — right at 50+ repos, heavy at 21.</p></div>
-        <div class="card"><h4>Poll only</h4><p style="font-size:13px">Hourly <code>gh api</code> backfill, no webhooks. Simplest; loses <code>workflow_run</code>/deploy granularity.</p></div>
-      </div>
-      <form class="q" data-lavish-question="D-03" onsubmit="event.preventDefault(); const c=new FormData(event.currentTarget).get('d03'); if(c) window.lavish.queuePrompt('D-03 GitHub capture: '+c, {tag:'decision', text:'D-03: '+c, element: event.currentTarget, data:{question:'D-03', answer:c}});">
-        <label><input type="radio" name="d03" value="per-repo webhooks scripted + backfill" checked> Per-repo hooks</label>
-        <label><input type="radio" name="d03" value="GitHub App"> GitHub App</label>
-        <label><input type="radio" name="d03" value="poll only"> Poll only</label>
-        <button type="submit" class="btn sm">Queue answer <span class="arr">→</span></button>
-      </form>
-    </div>
 
     <div class="card" style="border:1px solid var(--line)" id="d04">
-      <div class="eyebrow">D-04</div>
-      <h3>Stack</h3>
-      <p style="font-size:13px">Recommended: <strong>Python 3.12 + FastAPI + DuckDB</strong> backend, <strong>Vite + React + TS</strong> frontend with hand-written CSS from the design tokens above — identical plumbing to transcript-rag-agent / data-qa-agent so Dockerfile, CI and terraform copy over. Alternative: TypeScript end-to-end (Node + DuckDB-node) — one language, nothing in the portfolio to copy from.</p>
+      <div class="eyebrow">D-04 · open · you asked "why Python, why not TS the whole thing?"</div>
+      <h3>Stack — the honest comparison</h3>
+      <div class="cards c2" style="margin-top:6px">
+        <div class="card"><h4>Python + FastAPI + DuckDB · React/TS front</h4>
+          <p style="font-size:13px"><strong>Why I picked it:</strong> not language merit — <em>copy-ability</em>. transcript-rag-agent and data-qa-agent already have the Dockerfile, CI, OIDC deploy workflow and App Runner terraform for exactly this shape. P6 becomes a rename instead of a build. DuckDB's Python API is the reference implementation; boto3 and the anthropic SDK are boring.</p>
+          <p class="small muted"><strong>Costs:</strong> two languages, two toolchains (uv + npm), API↔UI types duplicated by hand or via OpenAPI codegen.</p></div>
+        <div class="card"><h4>TypeScript end-to-end · Node 24 + Hono/Fastify + @duckdb/node-api · React</h4>
+          <p style="font-size:13px"><strong>What it buys:</strong> one language, one toolchain, shared types between collectors, API and UI (zod schemas = event schema = API contract), Vitest everywhere, and the hooks/scripts Claude Code and Codex expose are JS-native. The collectors are JSONL parsing + git + fs — TS is at least as good at that.</p>
+          <p class="small muted"><strong>Costs:</strong> nothing in the portfolio to copy — Dockerfile, CI and deploy workflow written fresh (≈ a day); <code>@duckdb/node-api</code> is solid but younger than the Python binding; AWS SDK v3 is more verbose than boto3. None of these are hard, they are just not free.</p></div>
+      </div>
+      <p style="font-size:13px"><strong>Net:</strong> if this project is <em>a tool for you</em>, Python wins on time-to-App-Runner. If it is also <em>a portfolio piece showing a TS/Node service in AWS</em> (you don't have one yet — every sibling is Python), TS end-to-end is the better story and the extra day is worth it. I'd take TS if you want the portfolio angle; I have no other reason to prefer Python.</p>
       <form class="q" data-lavish-question="D-04" onsubmit="event.preventDefault(); const c=new FormData(event.currentTarget).get('d04'); if(c) window.lavish.queuePrompt('D-04 stack: '+c, {tag:'decision', text:'D-04: '+c, element: event.currentTarget, data:{question:'D-04', answer:c}});">
         <label><input type="radio" name="d04" value="Python FastAPI + React TS" checked> Python + React</label>
         <label><input type="radio" name="d04" value="TypeScript end-to-end"> TS end-to-end</label>
@@ -719,37 +694,8 @@
       </form>
     </div>
 
-    <div class="card" style="border:1px solid var(--line)" id="d05">
-      <div class="eyebrow">D-05 · tracked batch</div>
-      <h3>Which sources are in v1?</h3>
-      <form class="q" style="display:grid;gap:16px" data-lavish-question="D-05" onsubmit="event.preventDefault(); const sel=[...event.currentTarget.querySelectorAll('input[name=items]:checked')].map(i=>({id:i.value,label:i.dataset.label,disposition:'include-in-v1'})); if(sel.length) window.lavish.queuePrompt('D-05: include exactly these sources in v1 and defer the rest. Return an item-by-item receipt that accounts for every submitted ID.', {tag:'tracked-batch', text:'v1 sources: '+sel.map(s=>s.id).join(', '), element: event.currentTarget, data:{question:'D-05', items:sel}});">
-        <div class="checks">
-          <label><input type="checkbox" name="items" value="S-01" data-label="Claude Code" checked> S-01 Claude Code</label>
-          <label><input type="checkbox" name="items" value="S-02" data-label="Codex" checked> S-02 Codex</label>
-          <label><input type="checkbox" name="items" value="S-03" data-label="Local git" checked> S-03 Local git</label>
-          <label><input type="checkbox" name="items" value="S-04" data-label="GitHub" checked> S-04 GitHub</label>
-          <label><input type="checkbox" name="items" value="S-05" data-label="AWS" checked> S-05 AWS</label>
-          <label><input type="checkbox" name="items" value="S-06" data-label="Lavish pages" checked> S-06 Lavish pages</label>
-          <label><input type="checkbox" name="items" value="S-07" data-label="Eval runs"> S-07 Eval runs</label>
-          <label><input type="checkbox" name="items" value="S-08" data-label="no-mistakes gates"> S-08 no-mistakes gates</label>
-          <label><input type="checkbox" name="items" value="S-09" data-label="Databricks"> S-09 Databricks</label>
-          <label><input type="checkbox" name="items" value="S-10" data-label="Calendar"> S-10 Calendar</label>
-        </div>
-        <div><button type="submit" class="btn sm">Queue selected sources <span class="arr">→</span></button></div>
-      </form>
-    </div>
 
-    <div class="card" style="border:1px solid var(--line)" id="d06">
-      <div class="eyebrow">D-06</div>
-      <h3>Claude Code live hooks in v1?</h3>
-      <p style="font-size:13px">Hooks in <code>~/.claude/settings.json</code> (none configured today) would post <code>SessionStart</code>/<code>Stop</code> to the API for a live "working on X now" indicator. They add no token data and a network call to every session. Recommendation: <strong>defer to P7</strong>; the 5-minute collector is fresh enough.</p>
-      <form class="q" data-lavish-question="D-06" onsubmit="event.preventDefault(); const c=new FormData(event.currentTarget).get('d06'); if(c) window.lavish.queuePrompt('D-06 Claude Code live hooks: '+c, {tag:'decision', text:'D-06: '+c, element: event.currentTarget, data:{question:'D-06', answer:c}});">
-        <label><input type="radio" name="d06" value="defer to P7" checked> Defer</label>
-        <label><input type="radio" name="d06" value="include in v1"> Include in v1</label>
-        <button type="submit" class="btn sm">Queue answer <span class="arr">→</span></button>
-      </form>
-    </div>
-  </div>
+      </div>
 </section>
 
 <!-- ───────────── RISKS ───────────── -->

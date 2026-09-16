@@ -1,6 +1,6 @@
 # Plan: productivity-tracker v1
 
-Status: draft (for review in `.lavish/s00_implementation-plan.html`)
+Status: reviewed 2026-09-16 — D-01/02/03/05/06 decided, D-04 open (see Decisions)
 Date: 2026-09-16
 
 ## Goal
@@ -84,8 +84,10 @@ ecr_push, daily_cost. `lavish`: page_created, page_updated. `evals`: run.
 ## Proposed Steps
 
 1. **P1 Collectors + schema** — `pt collect` reads Claude Code / Codex JSONL
-   incrementally (file offsets in `~/.pt/state.json`), local git reflogs,
-   lavish pages, eval runs. Emits events to `data/events/`. Fixture tests.
+   incrementally (file offsets in `~/.pt/state.json`), backfills sessions and
+   prompts from `~/.claude/history.jsonl`, local git reflogs, lavish pages,
+   eval runs, no-mistakes gate runs. Emits events to `data/events/`. Runs
+   every 5 min via launchd. Fixture tests.
 2. **P2 Store + rollups** — S3 append; DuckDB SQL in `store/queries/*.sql`
    producing daily/weekly parquet: tokens by project×model×class, cost,
    commits, PRs, deploys, pages. `pt rollup`.
@@ -103,12 +105,23 @@ ecr_push, daily_cost. `lavish`: page_created, page_updated. `evals`: run.
    (rename project `pt`), Dockerfile with baked snapshot, `deploy.yml` via
    OIDC. Cost Explorer collector, EventBridge → `/ingest/aws`.
 7. **P7 Enrichment** — build-vs-eval classifier (path/tool heuristics first,
-   Haiku tagger second), price table, weekly narrative (Haiku over rollups).
+   Haiku tagger second), price table, weekly narrative (Haiku over rollups),
+   Claude Code live hooks.
+
+## Decisions (2026-09-16)
+
+| ID | Decision | Answer |
+|---|---|---|
+| D-01 | Storage | A — S3 JSONL + DuckDB/parquet; no database |
+| D-02 | Public demo | aggregates only; demo API never returns session ids, paths, branch names |
+| D-03 | GitHub capture | per-repo webhooks via `pt github install-hooks` + REST backfill |
+| D-04 | Stack | **open** — Python+FastAPI (copy-able infra) vs TS end-to-end (portfolio story, shared types) |
+| D-05 | v1 sources | S-01 … S-08 (eval runs and no-mistakes promoted into P1); S-09, S-10 deferred |
+| D-06 | Live hooks | deferred to P7 |
 
 ## Risks and Open Questions
 
-- Storage choice (S3+DuckDB vs Postgres vs SQLite+Litestream) — see review page.
-- Public demo privacy: aggregate-only is the default; confirm.
+- D-04 stack: decided by whether this is also meant as a TS/Node-in-AWS portfolio piece.
 - Claude Code hooks add live events but carry no token usage; JSONL remains
   the source of truth for tokens.
 - App Runner can run >1 instance; the ingest path must be append-only (S3
