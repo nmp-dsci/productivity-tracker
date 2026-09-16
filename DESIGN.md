@@ -70,7 +70,7 @@ as `pt-theme`). Only ground/ink/line tokens change; wine and foil are fixed.
 
 ## Heatmaps (Trends view)
 
-- One strip per metric row: rolling 90 days (10px cells, 2px gutter) or
+- One strip per metric row: rolling 180 days (5px cells, 1px gutter) or
   rolling 26 weeks (36px cells, 4px gutter); month labels above. Never a
   7-row calendar grid.
 - Colour ramp low → high: `#B4382E → #C9633A → #C9A24A → #8F9A3C → #6E8A2E`

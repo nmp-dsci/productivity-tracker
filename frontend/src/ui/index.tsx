@@ -86,7 +86,7 @@ export const Strip = ({ cells, grain, label, onHover, onClick }: {
   cells: { d: string; v: number }[]; grain: 'day' | 'week'; label: string;
   onHover: (h: HoverInfo) => void; onClick?: (d: string) => void;
 }) => {
-  const C = grain === 'day' ? 10 : 36, G = grain === 'day' ? 2 : 4, Hc = 26, top = 13;
+  const C = grain === 'day' ? 5 : 36, G = grain === 'day' ? 1 : 4, Hc = 26, top = 13;
   const W = cells.length * (C + G), H = top + Hc;
   const max = Math.max(1, ...cells.map((c) => c.v));
   let lastM = -1;

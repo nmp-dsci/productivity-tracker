@@ -5,13 +5,13 @@ import { Growth, Head, Sparkline, Status, Strip, Toggle, Tooltip, useFetch, type
 
 export default function Trends({ onPickDay }: { onPickDay: (d: string) => void }) {
   const [grain, setGrain] = useState<'day' | 'week'>('day');
-  const window = grain === 'day' ? 90 : 26;
+  const window = grain === 'day' ? 180 : 26;
   const { data, error, loading } = useFetch(() => api.trends(grain, window), [grain]);
   const [hover, setHover] = useState<HoverInfo>(null);
   return (
     <section id="trends">
       <Head eyebrow="Landing view" title="Trends" lede="One strip per metric. Colour is volume, red → green, log-scaled per row; the sparkline is the last 26 weeks; ▲▼ is week-on-week and last-4-weeks vs prior-4.">
-        <Toggle value={grain} options={[['day', 'Day · rolling 90'], ['week', 'Week · rolling 26']]} onChange={setGrain} />
+        <Toggle value={grain} options={[['day', 'Day · rolling 180'], ['week', 'Week · rolling 26']]} onChange={setGrain} />
       </Head>
       <Status loading={loading} error={error} />
       {data && (
