@@ -29,3 +29,8 @@ export const level = (v: number, max: number): number => {
   return r < 0.2 ? 1 : r < 0.4 ? 2 : r < 0.6 ? 3 : r < 0.8 ? 4 : 5;
 };
 export const SERIES = ['#B4386E', '#C9A24A', '#6E8A2E', '#4A2C22', '#6E2A2A', '#3E3E3E'];
+
+/** Home-page metric order: the "This week" tiles and the Trends strips both follow it. */
+export const METRIC_ORDER = ['prompts', 'tokens_out', 'tokens_in', 'cache_read', 'cost_usd', 'lavish', 'commits', 'prs', 'deploys', 'projects'];
+export const byMetricOrder = <T extends { key: string }>(rows: T[]): T[] =>
+  rows.filter((r) => METRIC_ORDER.includes(r.key)).sort((a, b) => METRIC_ORDER.indexOf(a.key) - METRIC_ORDER.indexOf(b.key));

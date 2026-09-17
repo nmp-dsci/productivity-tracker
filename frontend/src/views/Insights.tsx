@@ -1,14 +1,15 @@
 import { api } from '../api';
-import { delta, fmt, usd } from '../format';
-import { Eyebrow, Head, Status, useFetch } from '../ui';
+import { byMetricOrder, delta, fmt, usd } from '../format';
+import { Eyebrow, Head, Sparkline, Status, useFetch } from '../ui';
 
 const money = new Set(['cost_usd']);
-// Session counts stay in the strips below; the top line is about work and output.
-const HIDE = new Set(['claude_sessions', 'automated_sessions', 'codex_sessions', 'projects']);
+// The top line is about work and output: no session counts, no project count.
+const HIDE = new Set(['projects']);
 const show = (key: string, v: number) => (money.has(key) ? usd(v) : fmt(v));
 
 /** Rolling last 7 days vs the 7 before: the stat strip of every metric with a
- *  coloured change, then projects with activity by commits. */
+ *  coloured change and its 26-week trend drawn behind the tile, then projects
+ *  with activity by commits. */
 export default function Insights() {
   const { data, error, loading } = useFetch(() => api.insights(), []);
   return (
@@ -18,10 +19,11 @@ export default function Insights() {
       {data && (
         <>
           <div className="stats">
-            {data.metrics.filter((m) => !HIDE.has(m.key)).map((m) => {
+            {byMetricOrder(data.metrics).filter((m) => !HIDE.has(m.key)).map((m) => {
               const d = delta(m.value, m.prior);
               return (
                 <div key={m.key} title={m.note}>
+                  {m.spark && <div className="bg" aria-hidden><Sparkline values={m.spark} height="100%" /></div>}
                   <div className="v">{show(m.key, m.value)}</div>
                   <div className="l">{m.label}</div>
                   <div className={'d ' + d.cls}>{d.text} <span className="muted">· prior {show(m.key, m.prior)}</span></div>

@@ -123,6 +123,7 @@ def trends(con: duckdb.DuckDBPyConnection, grain: str, window: int, today: date)
                 "label": label,
                 "note": note,
                 "total": sum(shown),
+                "all_time": sum(_series(con, key, date(2000, 1, 1), today).values()),
                 "active": sum(1 for v in shown if v),
                 "spark": [v for _, v in weeks[-26:]],
                 "growth": _growth(weeks),
@@ -207,6 +208,11 @@ def overview(con: duckdb.DuckDBPyConnection, week_start: date) -> dict[str, Any]
 def insights(con: duckdb.DuckDBPyConnection, today: date, narratives_dir: Path) -> dict[str, Any]:
     """Rolling last 7 days vs the 7 before, plus the latest rolling narrative."""
     out = window_summary(con, today - timedelta(days=6), today)
+    # 26 weekly totals per metric, drawn behind each tile.
+    spark_start = today - timedelta(days=26 * 7 - 1)
+    for m in out["metrics"]:
+        weeks = _weekly(_series(con, m["key"], spark_start, today), spark_start, today)
+        m["spark"] = [v for _, v in weeks[-26:]]
     latest = sorted(narratives_dir.glob("rolling-*.md")) if narratives_dir.exists() else []
     out["narrative"] = latest[-1].read_text() if latest else None
     out["narrative_end"] = latest[-1].stem.removeprefix("rolling-") if latest else None

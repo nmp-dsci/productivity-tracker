@@ -2,13 +2,13 @@
 
 export type Cell = { d: string; v: number };
 export type TrendRow = {
-  key: string; label: string; note: string; total: number; active: number;
+  key: string; label: string; note: string; total: number; all_time: number; active: number;
   spark: number[]; growth: { wow: number | null; w4: number | null }; cells: Cell[];
 };
 export type Trends = { grain: 'day' | 'week'; window: number; start: string; end: string; rows: TrendRow[] };
 
 export type Ship = { ts: string; day: string; source: string; kind: string; project: string | null; repo?: string | null; branch?: string | null; title: string | null; status: string | null; url?: string | null; number?: number | null };
-export type Metric = { key: string; label: string; note: string; value: number; prior: number; growth: number | null };
+export type Metric = { key: string; label: string; note: string; value: number; prior: number; growth: number | null; spark?: number[] };
 export type Insights = {
   start: string; end: string; prior_start: string; prior_end: string; kpis: Record<string, number>; prior: Record<string, number>;
   metrics: Metric[]; projects: Overview['projects']; split: Overview['split']; shiplog: Ship[]; narrative: string | null; narrative_end: string | null;

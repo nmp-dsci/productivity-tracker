@@ -58,7 +58,11 @@ section + section { border-top: 1px solid var(--line-2); }
 
 /* stats strip + kpis */
 .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink); }
-.stats > div { padding: 20px 14px; text-align: center; border-right: 1px solid var(--line); }
+.stats > div { padding: 20px 14px; text-align: center; border-right: 1px solid var(--line); position: relative; overflow: hidden; }
+.stats > div > * { position: relative; }
+/* 26-week trend drawn behind each tile */
+.stats .bg { position: absolute; left: 0; right: 0; bottom: 0; height: 62%; opacity: 0.55; pointer-events: none; }
+.stats .bg svg { display: block; width: 100%; height: 100%; }
 .stats > div:last-child { border-right: 0; }
 .stats .v { font-family: var(--cond); font-weight: 700; font-size: 40px; line-height: 1; letter-spacing: 0.02em; }
 .stats .l { margin-top: 8px; font-family: var(--cond); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }

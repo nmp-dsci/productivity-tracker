@@ -48,7 +48,7 @@ export const Bar = ({ label, v, max, color, n }: { label: ReactNode; v: number; 
   </div>
 );
 
-export const Sparkline = ({ values, height = 40 }: { values: number[]; height?: number }) => {
+export const Sparkline = ({ values, height = 40 }: { values: number[]; height?: number | string }) => {
   const W = 200, H = 80, n = values.length, max = Math.max(1, ...values);
   const pts = values.map((v, i) => [(i / Math.max(n - 1, 1)) * W, H - (v / max) * H * 0.9] as const);
   const line = pts.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ');
