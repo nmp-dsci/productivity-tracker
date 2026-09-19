@@ -1,7 +1,14 @@
 from __future__ import annotations
 
+from pathlib import Path
+
+import httpx
+
+from pt.collectors import github
 from pt.collectors.aws import parse_eventbridge
 from pt.collectors.github import parse_webhook
+from pt.config import Settings
+from pt.state import State
 
 
 def test_workflow_run_and_push_parsers() -> None:
@@ -61,3 +68,53 @@ def test_eventbridge_parser() -> None:
         and ev.project == "pt"
         and ev.meta["status"].endswith("Successfully")
     )
+
+
+def test_backfill_deployments_survive_unsorted_order(monkeypatch, tmp_path: Path) -> None:
+    # The deployments endpoint is not requested with an explicit sort, so a
+    # recent deployment can appear after an older one in the page. Backfill
+    # must not stop at the first older item, or it would silently drop it.
+    deployments = [
+        {"id": 1, "created_at": "2020-01-01T00:00:00Z", "ref": "main", "environment": "production"},
+        {"id": 2, "created_at": "2026-09-10T00:00:00Z", "ref": "main", "environment": "production"},
+    ]
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        path = request.url.path
+        if path == "/user/repos":
+            return httpx.Response(200, json=[{"full_name": "nmp-dsci/alpha"}])
+        if path.endswith("/pulls"):
+            return httpx.Response(200, json=[])
+        if path.endswith("/actions/runs"):
+            return httpx.Response(200, json={"workflow_runs": []})
+        if path == "/repos/nmp-dsci/alpha/deployments":
+            return httpx.Response(200, json=deployments)
+        if path == "/repos/nmp-dsci/alpha/deployments/1/statuses":
+            return httpx.Response(200, json=[])
+        if path == "/repos/nmp-dsci/alpha/deployments/2/statuses":
+            return httpx.Response(
+                200,
+                json=[
+                    {
+                        "id": 100,
+                        "state": "success",
+                        "created_at": "2026-09-10T00:05:00Z",
+                        "environment_url": "https://example.com",
+                    }
+                ],
+            )
+        raise AssertionError(f"unexpected request: {path}")
+
+    monkeypatch.setattr(
+        github,
+        "client",
+        lambda: httpx.Client(base_url=github.API, transport=httpx.MockTransport(handler)),
+    )
+
+    settings = Settings(github_owner="nmp-dsci")
+    state = State(tmp_path / "state.json")
+    events = list(github.backfill(settings, state, days=30))
+
+    statuses = [e for e in events if e.kind == "deployment_status"]
+    assert len(statuses) == 1
+    assert statuses[0].meta["status"] == "success"
