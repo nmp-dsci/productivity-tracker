@@ -113,7 +113,7 @@ ecr_push, daily_cost. `lavish`: page_created, page_updated. `evals`: run.
 | ID | Decision | Answer |
 |---|---|---|
 | D-01 | Storage | A — S3 JSONL + DuckDB/parquet; no database |
-| D-02 | Public demo | aggregates only; demo API never returns session ids, paths, branch names |
+| D-02 | Public demo | aggregates only; demo API never returns session ids, paths, branch names (project/repo names stay, since all nmp-dsci repos are public and per-project breakdown is the point of the demo) |
 | D-03 | GitHub capture | per-repo webhooks via `pt github install-hooks` + REST backfill |
 | D-04 | Stack | Python 3.12 + FastAPI + DuckDB backend; Vite + React + TS frontend |
 | D-05 | v1 sources | S-01 … S-08 (eval runs and no-mistakes promoted into P1); S-09, S-10 deferred |

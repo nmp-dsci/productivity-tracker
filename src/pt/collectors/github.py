@@ -260,9 +260,9 @@ def backfill(settings: Settings, state: State, days: int = 365) -> Iterator[Even
             ):
                 if run.get("status") == "completed":
                     yield from _workflow_run_events(run, full, project)
-            for dep in _paged(c, f"/repos/{full}/deployments", max_pages=2):
+            for dep in _paged(c, f"/repos/{full}/deployments", max_pages=10):
                 if utc(dep["created_at"]) < since:
-                    break
+                    continue
                 for st in _paged(c, f"/repos/{full}/deployments/{dep['id']}/statuses", max_pages=1):
                     yield Event(
                         event_id=event_id(SOURCE, "deployment_status", full, dep["id"], st["id"]),

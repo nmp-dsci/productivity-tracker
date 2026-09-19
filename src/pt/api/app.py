@@ -24,6 +24,8 @@ from pt.config import Settings, settings
 from pt.schema import Event
 from pt.store.local import LocalStore
 
+# `project` is intentionally NOT redacted: all repos are public under the
+# nmp-dsci account and the per-project breakdown is the point of the demo.
 REDACT_KEYS = {"session_id", "branch", "url", "repo", "paths", "models", "number"}
 
 
