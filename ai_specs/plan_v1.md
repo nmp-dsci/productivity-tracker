@@ -1,6 +1,6 @@
 # Plan: productivity-tracker v1
 
-Status: draft (for review in `.lavish/s00_implementation-plan.html`)
+Status: approved 2026-09-16 — all decisions made, build in progress
 Date: 2026-09-16
 
 ## Goal
@@ -16,6 +16,12 @@ it cost in agent effort, and how is that trending?*
   assistant messages carrying `usage`. Lifetime: 71.4M output tokens, 8.25B
   cache-read, 318M cache-write, 3.9M uncached input. Models: haiku-4-5 (25k
   msgs), sonnet-5 (16.5k), opus-5 (16.2k), fable-5 (8.6k), fable-5-1 (3k).
+- **Retention finding:** Claude Code purges transcripts after 30 days
+  (`cleanupPeriodDays` unset → default 30). Transcripts on disk start
+  2026-08-13. `~/.claude/history.jsonl` (3,919 prompts since Feb 2026, with
+  sessionId/project/timestamp) survives and backfills sessions + prompts;
+  tokens older than 30 days are unrecoverable. Raise `cleanupPeriodDays`
+  and run the collector every 5 min.
 - `~/.codex/sessions/`: 92 session files with `token_count` events.
 - `.lavish/` in 15 portfolio repos: 195 review pages.
 - GitHub: `nmp-dsci` is a user account (no org webhooks). Some repos only have a
@@ -78,28 +84,43 @@ ecr_push, daily_cost. `lavish`: page_created, page_updated. `evals`: run.
 ## Proposed Steps
 
 1. **P1 Collectors + schema** — `pt collect` reads Claude Code / Codex JSONL
-   incrementally (file offsets in `~/.pt/state.json`), local git reflogs,
-   lavish pages, eval runs. Emits events to `data/events/`. Fixture tests.
+   incrementally (file offsets in `~/.pt/state.json`), backfills sessions and
+   prompts from `~/.claude/history.jsonl`, local git reflogs, lavish pages,
+   eval runs, no-mistakes gate runs. Emits events to `data/events/`. Runs
+   every 5 min via launchd. Fixture tests.
 2. **P2 Store + rollups** — S3 append; DuckDB SQL in `store/queries/*.sql`
    producing daily/weekly parquet: tokens by project×model×class, cost,
    commits, PRs, deploys, pages. `pt rollup`.
-3. **P3 API** — FastAPI `/api/overview`, `/api/agents`, `/api/github`,
+3. **P3 API** — FastAPI `/api/trends?grain=day|week&window=180|26`, `/api/overview`, `/api/agents`, `/api/github`,
    `/api/projects/{name}`, `/api/shiplog`, `/api/weekly`; `/ingest/github`,
    `/ingest/aws` with HMAC verification. Demo mode = read-only.
 4. **P4 GitHub** — `pt github install-hooks` creates a webhook on every
    `nmp-dsci` repo; `pt github backfill` walks commits/PRs/runs via the API.
-5. **P5 Frontend** — Vite + React + TS. Views: Overview, Agents, GitHub,
-   Projects, Ship log, Weekly review.
+5. **P5 Frontend** — Vite + React + TS. Views: **Trends** (landing: one
+   contributions-style heatmap row per metric — sessions, tokens, $, lavish
+   pages, commits, PRs, deploys, projects active — rolling 180 days or rolling 26 weeks,
+   intensity = volume, log-scaled per row; clicking a cell filters the other
+   views), Overview, Agents, GitHub, Projects, Ship log, Weekly review.
 6. **P6 AWS + deploy** — copy `transcript-rag-agent` bootstrap/demo terraform
    (rename project `pt`), Dockerfile with baked snapshot, `deploy.yml` via
    OIDC. Cost Explorer collector, EventBridge → `/ingest/aws`.
 7. **P7 Enrichment** — build-vs-eval classifier (path/tool heuristics first,
-   Haiku tagger second), price table, weekly narrative (Haiku over rollups).
+   Haiku tagger second), price table, weekly narrative (Haiku over rollups),
+   Claude Code live hooks.
+
+## Decisions (2026-09-16)
+
+| ID | Decision | Answer |
+|---|---|---|
+| D-01 | Storage | A — S3 JSONL + DuckDB/parquet; no database |
+| D-02 | Public demo | aggregates only; demo API never returns session ids, paths, branch names (project/repo names stay, since all nmp-dsci repos are public and per-project breakdown is the point of the demo) |
+| D-03 | GitHub capture | per-repo webhooks via `pt github install-hooks` + REST backfill |
+| D-04 | Stack | Python 3.12 + FastAPI + DuckDB backend; Vite + React + TS frontend |
+| D-05 | v1 sources | S-01 … S-08 (eval runs and no-mistakes promoted into P1); S-09, S-10 deferred |
+| D-06 | Live hooks | deferred to P7 |
 
 ## Risks and Open Questions
 
-- Storage choice (S3+DuckDB vs Postgres vs SQLite+Litestream) — see review page.
-- Public demo privacy: aggregate-only is the default; confirm.
 - Claude Code hooks add live events but carry no token usage; JSONL remains
   the source of truth for tokens.
 - App Runner can run >1 instance; the ingest path must be append-only (S3
