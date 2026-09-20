@@ -1,0 +1,60 @@
+name: Deploy (AWS demo)
+
+# Push to main is the deploy: pull the latest rollups from the events bucket,
+# build+push the demo image (App Runner auto-deploys :latest), reconcile
+# Terraform, smoke-test. Auth is GitHub OIDC into pt-github-deploy — no keys.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: deploy-aws
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ap-southeast-2
+  DEPLOY_ROLE_ARN: arn:aws:iam::089783391188:role/pt-github-deploy
+  EVENTS_BUCKET: pt-events-089783391188
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
+      - name: Pull rollups (the demo snapshot)
+        run: aws s3 sync "s3://$EVENTS_BUCKET/rollups" data/rollups
+      - name: Terraform apply (ECR before first push)
+        working-directory: infra/terraform/demo
+        run: |
+          terraform init -input=false
+          terraform apply -input=false -auto-approve -target=aws_ecr_repository.demo
+      - name: Build & push demo image
+        run: ./scripts/aws_build_push.sh
+      - name: Terraform apply (full)
+        working-directory: infra/terraform/demo
+        run: terraform apply -input=false -auto-approve
+      - name: Wait for App Runner
+        run: |
+          ARN=$(aws apprunner list-services --query "ServiceSummaryList[?ServiceName=='pt-demo'].ServiceArn" --output text)
+          for i in $(seq 1 60); do
+            STATUS=$(aws apprunner describe-service --service-arn "$ARN" --query "Service.Status" --output text)
+            echo "status: $STATUS"; [ "$STATUS" = "RUNNING" ] && exit 0
+            case "$STATUS" in CREATE_FAILED|DELETE_FAILED) exit 1;; esac
+            sleep 20
+          done
+          exit 1
+      - name: Smoke test
+        run: ./scripts/demo_smoke.sh "$(terraform -chdir=infra/terraform/demo output -raw service_url)"

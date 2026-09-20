@@ -9,8 +9,7 @@ __pycache__/
 .env
 
 # Collected events and rollups are local state, never committed
-data/events/
-data/rollups/
+data/
 *.duckdb
 
 # Built React bundle — rebuild with: cd frontend && npm install && npm run build
