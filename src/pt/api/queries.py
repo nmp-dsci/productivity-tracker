@@ -30,7 +30,15 @@ METRICS: list[tuple[str, str, str]] = [
 ]
 
 _METRIC_SQL: dict[str, str] = {
-    "screen_hours": "SELECT day, sum(seconds) / 3600 v FROM daily WHERE source='screen' AND kind='display_span' GROUP BY 1",
+    # Two readings of the same hours, so never summed. Apple's own store wins
+    # where we have it — it is what the Screen Time panel shows, and it excludes
+    # locked-but-lit time that pmset counts (pmset reads ~40% higher). pmset is
+    # the fallback for days the backfill never covered.
+    "screen_hours": """SELECT day, (CASE WHEN apple > 0 THEN apple ELSE live END) / 3600 v FROM (
+                         SELECT day,
+                           sum(CASE WHEN kind='display_span' THEN seconds ELSE 0 END) live,
+                           sum(CASE WHEN kind='display_span_apple' THEN seconds ELSE 0 END) apple
+                         FROM daily WHERE source='screen' GROUP BY 1)""",
     # Interactive = at least one human prompt in history.jsonl. Automated =
     # subagents and the `claude -p` runs an eval loop fans out (no prompt).
     "claude_sessions": "SELECT day, count(*) v FROM sessions WHERE source='claude_code' AND prompts > 0 GROUP BY 1",

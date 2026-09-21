@@ -6,14 +6,16 @@ Two readers, one event kind:
 - `collect()` parses `pmset -g log`, which records every "Display is turned
   on/off" transition. It needs no permissions at all, but Apple keeps only
   about a week of it, so it runs on the ordinary 5-minute collect tick.
-- `backfill()` reads `/display/isBacklit` out of Apple's own Screen Time store
+- `backfill()` (kind `display_span_apple`) reads `/display/isBacklit` out of Apple's own Screen Time store
   (`~/Library/Application Support/Knowledge/knowledgeC.db`) for roughly a
   month of history. That file is TCC-protected: the *running process* needs
   Full Disk Access, and without it we log a clear line and yield nothing.
 
-Both emit `display_span` events carrying a start and a duration — no app
-names, no window titles, no URLs. A span crossing local midnight is split so
-every event belongs to exactly one local day.
+Both emit spans carrying a start and a duration — no app names, no window
+titles, no URLs — split at local midnight so every event belongs to exactly
+one local day. The two overlap on the days they both cover, so they are stored
+under different kinds and `screen_hours` takes the larger of the two per day
+instead of adding them up.
 """
 
 from __future__ import annotations
@@ -31,7 +33,10 @@ from pt.schema import Event, Source, event_id
 from pt.state import State
 
 SOURCE: Source = "screen"
+# Live record (pmset) and Apple's backfill measure the same hours, so they get
+# distinct kinds and the rollup takes one per day rather than summing both.
 KIND = "display_span"
+KIND_BACKFILL = "display_span_apple"
 
 # 2026-09-21 08:06:47 +1000 Notification   Display is turned on
 _LINE = re.compile(
@@ -98,16 +103,18 @@ def split_days(start: datetime, end: datetime, tz: str) -> Iterator[tuple[dateti
         cur = stop
 
 
-def _events(pairs: list[tuple[datetime, datetime]], tz: str, src: str) -> Iterator[Event]:
+def _events(
+    pairs: list[tuple[datetime, datetime]], tz: str, src: str, kind: str = KIND
+) -> Iterator[Event]:
     for start, end in pairs:
         pieces = list(split_days(start, end, tz))
         for piece_start, seconds in pieces:
             if seconds <= 0:
                 continue
             yield Event(
-                event_id=event_id(SOURCE, KIND, piece_start.isoformat()),
+                event_id=event_id(SOURCE, kind, piece_start.isoformat()),
                 source=SOURCE,
-                kind=KIND,
+                kind=kind,
                 ts=piece_start,
                 seconds=round(seconds, 1),
                 cls="unknown",
@@ -161,4 +168,4 @@ def backfill(settings: Settings, state: State, days: int = 30) -> Iterator[Event
             f"cannot read {db}: {exc}. Grant Full Disk Access to this terminal in "
             "System Settings → Privacy & Security → Full Disk Access, then re-run."
         ) from exc
-    yield from _events(pairs, settings.timezone, "knowledgeC")
+    yield from _events(pairs, settings.timezone, "knowledgeC", KIND_BACKFILL)

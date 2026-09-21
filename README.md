@@ -98,6 +98,15 @@ Events carry a start and a duration only — never an app name, window title or
 URL. Spans crossing local midnight are split so each belongs to one local day;
 dark wakes and any span over 16 hours (a missed "off") are dropped.
 
+The two readers measure the same hours, so they are **never summed**: they are
+stored under different kinds (`display_span`, `display_span_apple`) and
+`screen_hours` takes Apple's number for any day it covers, falling back to
+pmset for days the backfill never reached. Apple's is the number the Screen
+Time panel shows; pmset reads roughly 40% higher because it counts the display
+being lit while the Mac is locked. Once Full Disk Access is granted, the
+launchd job re-runs `pt screen-backfill --days 3` on every tick so recent days
+keep Apple's reading.
+
 ## Configuration
 
 | Variable | Default | Purpose |

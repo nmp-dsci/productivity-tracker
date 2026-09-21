@@ -4,7 +4,7 @@ import hashlib
 import hmac
 import json
 from dataclasses import replace
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -175,3 +175,35 @@ def test_screen_hours(settings: Settings, state: State, tmp_path: Path) -> None:
     # 2h and 6h of display-on, each on its own local day, both complete.
     assert round(hours["total"], 2) == 8.0
     assert [round(c["v"], 2) for c in hours["cells"][-3:]] == [2.0, 6.0, 0.0]
+
+
+def test_screen_sources_are_not_summed(settings: Settings, state: State, tmp_path: Path) -> None:
+    """pmset and knowledgeC are two readings of the same hours. Apple's own
+    number wins where we have it; pmset covers the days it never reached."""
+    from pt.collectors.screen import KIND, KIND_BACKFILL
+    from pt.schema import Event, event_id
+
+    day, other = date.today() - timedelta(days=2), date.today() - timedelta(days=3)
+    cfg = _prepared(settings, state)
+    LocalStore(cfg.events_dir).append(
+        [
+            Event(
+                event_id=event_id("screen", kind, f"{d}T01:00:00+00:00"),
+                source="screen",
+                kind=kind,
+                ts=datetime(d.year, d.month, d.day, 1, tzinfo=UTC),
+                seconds=secs,
+                meta={"src": src},
+            )
+            for d, kind, secs, src in [
+                (day, KIND, 7200.0, "pmset"),  # both cover this day
+                (day, KIND_BACKFILL, 3600.0, "knowledgeC"),
+                (other, KIND, 1800.0, "pmset"),  # pmset only
+            ]
+        ]
+    )
+    build(cfg, cfg.rollups_dir)
+    rows = TestClient(create_app(cfg)).get("/api/trends?grain=day&window=7").json()["rows"]
+    cells = {c["d"]: c["v"] for c in {r["key"]: r for r in rows}["screen_hours"]["cells"]}
+    assert cells[day.isoformat()] == 1.0  # Apple's 1h, not 3h and not 2h
+    assert cells[other.isoformat()] == 0.5  # falls back to pmset

@@ -118,7 +118,7 @@ ecr_push, daily_cost. `lavish`: page_created, page_updated. `evals`: run.
 | D-04 | Stack | Python 3.12 + FastAPI + DuckDB backend; Vite + React + TS frontend |
 | D-05 | v1 sources | S-01 … S-08 (eval runs and no-mistakes promoted into P1); S-09 screen time added 2026-09-21, S-10 deferred |
 | D-06 | Live hooks | deferred to P7 |
-| D-07 | Screen time capture (2026-09-21) | `pmset -g log` on the 5-minute tick (no permissions, ~7 days of history) **plus** a one-off knowledgeC.db backfill of ~30 days, which needs Full Disk Access |
+| D-07 | Screen time capture (2026-09-21) | `pmset -g log` on the 5-minute tick (no permissions, ~7 days of history) **plus** a knowledgeC.db backfill (Full Disk Access granted 2026-09-21; 30 days seeded, `--days 3` on every tick). The two are never summed: Apple's reading wins per day, pmset fills days it never covered |
 | D-08 | Trend periods (2026-09-21) | no partial periods: the week grain is rolling 7-day blocks ending on the last complete day, recomputed daily; today is drawn but never counted |
 | D-09 | Screen-time detail (2026-09-21) | one metric only — hours the display was on. No per-app hours, categories, websites, idle split, pickups or notification counts |
 | D-10 | Screen time in the demo (2026-09-21) | yes: a span is a start and a duration, an aggregate like every other metric |
