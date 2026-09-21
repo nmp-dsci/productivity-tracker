@@ -1,11 +1,12 @@
 import { api } from '../api';
-import { byMetricOrder, delta, fmt, usd } from '../format';
+import { byMetricOrder, delta, fmt, hours, usd } from '../format';
 import { Eyebrow, Head, Sparkline, Status, useFetch } from '../ui';
 
 const money = new Set(['cost_usd']);
+const time = new Set(['screen_hours']);
 // The top line is about work and output: no session counts, no project count.
 const HIDE = new Set(['projects']);
-const show = (key: string, v: number) => (money.has(key) ? usd(v) : fmt(v));
+const show = (key: string, v: number) => (money.has(key) ? usd(v) : time.has(key) ? hours(v) : fmt(v));
 
 /** Rolling last 7 days vs the 7 before: the stat strip of every metric with a
  *  coloured change and its 26-week trend drawn behind the tile, then projects
@@ -14,7 +15,7 @@ export default function Insights() {
   const { data, error, loading } = useFetch(() => api.insights(), []);
   return (
     <section id="insights" style={{ paddingTop: 40 }}>
-      <Head eyebrow="rolling 7 days" title="This week" lede={data ? `${data.start} → ${data.end}, against ${data.prior_start} → ${data.prior_end}. The strips below show the same metrics over time.` : undefined} />
+      <Head eyebrow="rolling 7 complete days" title="Last 7 days" lede={data ? `${data.start} → ${data.end}, against ${data.prior_start} → ${data.prior_end}. Complete days only, so today (${data.as_of}) is not in it. The strips below show the same metrics over time.` : undefined} />
       <Status loading={loading} error={error} />
       {data && (
         <>
@@ -32,7 +33,7 @@ export default function Insights() {
             })}
           </div>
           <div className="card" style={{ marginTop: 24, padding: 0, border: '1px solid var(--line)' }}>
-            <div style={{ padding: '14px 16px 0' }}><Eyebrow>Projects with activity · by commits · last 7 days</Eyebrow></div>
+            <div style={{ padding: '14px 16px 0' }}><Eyebrow>Projects with activity · by commits · last 7 complete days</Eyebrow></div>
             <div className="tbl compact" style={{ borderTop: 0 }}>
               <table>
                 <thead><tr><th>project</th><th className="num">commits</th><th className="num">PRs</th><th className="num">pages</th><th className="num">deploys</th><th className="num">out tokens</th><th className="num">$</th></tr></thead>

@@ -4,10 +4,14 @@ import hashlib
 import hmac
 import json
 from dataclasses import replace
+from datetime import date, timedelta
+from pathlib import Path
 
+import pytest
 from fastapi.testclient import TestClient
 
 from pt.api.app import create_app
+from pt.api.queries import RATIOS
 from pt.collectors import registry
 from pt.config import Settings
 from pt.state import State
@@ -28,14 +32,18 @@ def test_read_routes(settings: Settings, state: State) -> None:
     client = TestClient(create_app(cfg))
     assert client.get("/api/health").json()["ok"] is True
     t = client.get("/api/trends?grain=day&window=30").json()
-    assert [r["key"] for r in t["rows"]][:3] == ["claude_sessions", "automated_sessions", "prompts"]
+    assert [r["key"] for r in t["rows"]][:3] == [
+        "screen_hours",
+        "tok_out_per_hour",
+        "claude_sessions",
+    ]
     assert len(t["rows"][0]["cells"]) == 30
     w = client.get("/api/trends?grain=week&window=26").json()
     assert len(w["rows"][0]["cells"]) == 26 and "growth" in w["rows"][0]
     ins = client.get("/api/insights").json()
     assert [m["key"] for m in ins["metrics"]][:2] == [
-        "claude_sessions",
-        "automated_sessions",
+        "screen_hours",
+        "tok_out_per_hour",
     ] and "narrative" in ins
     ov = client.get("/api/overview?week=2026-09-10").json()
     assert ov["week_start"] == "2026-09-07" and ov["kpis"]["commits"] == 2
@@ -97,3 +105,82 @@ def test_demo_mode_is_read_only_and_redacted(settings: Settings, state: State) -
     )
     text = json.dumps(client.get("/api/github?days=365").json())
     assert "feature/x" not in text
+
+
+def test_in_progress_periods_are_flagged_and_excluded(settings: Settings, state: State) -> None:
+    """Today, and the current week, are still being lived in: they are returned
+    so the strip can draw them, but they must not move a total or a growth %."""
+    cfg = _prepared(settings, state)
+    client = TestClient(create_app(cfg))
+
+    day = client.get("/api/trends?grain=day&window=30").json()
+    assert day["complete_through"] == (date.today() - timedelta(days=1)).isoformat()
+    for row in day["rows"]:
+        cells = row["cells"]
+        assert [c["d"] for c in cells if not c["done"]] == [date.today().isoformat()]
+        assert row["periods"] == len(cells) - 1
+        if row["key"] not in RATIOS:  # a ratio divides sums, it is not one
+            assert row["total"] == pytest.approx(sum(c["v"] for c in cells if c["done"]))
+
+
+def test_week_grain_is_rolling_seven_whole_days(settings: Settings, state: State) -> None:
+    """Weeks are 7-day blocks anchored on the last complete day and recomputed
+    daily — never a calendar week that is one day old on a Monday."""
+    client = TestClient(create_app(_prepared(settings, state)))
+    week = client.get("/api/trends?grain=week&window=26").json()
+    yesterday = date.today() - timedelta(days=1)
+    assert week["complete_through"] == yesterday.isoformat()
+    for row in week["rows"]:
+        cells = row["cells"]
+        assert len(cells) == 26 and row["periods"] == 26
+        assert all(c["done"] for c in cells)
+        # Every block is exactly seven days long and they tile without gaps.
+        for c in cells:
+            assert (date.fromisoformat(c["end"]) - date.fromisoformat(c["d"])).days == 6
+        for a, b in zip(cells[:-1], cells[1:], strict=True):
+            assert date.fromisoformat(b["d"]) - date.fromisoformat(a["end"]) == timedelta(days=1)
+        assert cells[-1]["end"] == yesterday.isoformat()
+        if row["key"] not in RATIOS:
+            assert row["total"] == pytest.approx(sum(c["v"] for c in cells))
+        # The tiles cover the same seven days as the last block.
+        assert len(row["spark"]) == 26
+
+
+def test_insights_window_ends_yesterday(settings: Settings, state: State) -> None:
+    """A part-day against seven whole ones reads as a collapse, so the rolling
+    window stops at the last complete day."""
+    cfg = _prepared(settings, state)
+    ins = TestClient(create_app(cfg)).get("/api/insights").json()
+    assert ins["end"] == (date.today() - timedelta(days=1)).isoformat()
+    assert ins["start"] == (date.today() - timedelta(days=7)).isoformat()
+    assert ins["prior_end"] == (date.today() - timedelta(days=8)).isoformat()
+    assert ins["as_of"] == date.today().isoformat()
+
+
+def test_screen_hours_and_ratio(settings: Settings, state: State, tmp_path: Path) -> None:
+    """Screen time rolls up as hours, and the output-per-hour row divides the
+    summed tokens by the summed hours rather than averaging daily ratios."""
+    today = date.today()
+    log = tmp_path / "pmset.log"
+    log.write_text(
+        "\n".join(
+            f"{d} {t} +0000 Notification\tDisplay is turned {onoff}"
+            for d, t, onoff in [
+                ((today - timedelta(days=2)).isoformat(), "01:00:00", "on"),
+                ((today - timedelta(days=2)).isoformat(), "03:00:00", "off"),
+                ((today - timedelta(days=1)).isoformat(), "01:00:00", "on"),
+                ((today - timedelta(days=1)).isoformat(), "07:00:00", "off"),
+            ]
+        )
+    )
+    cfg = replace(_prepared(replace(settings, pmset_log=log), state), pmset_log=log)
+    rows = TestClient(create_app(cfg)).get("/api/trends?grain=day&window=7").json()["rows"]
+    trends = {r["key"]: r for r in rows}
+    hours, ratio, tokens = (
+        trends["screen_hours"],
+        trends["tok_out_per_hour"],
+        trends["tokens_out"],
+    )
+    # 2h and 6h of display-on, each on its own local day, both complete.
+    assert round(hours["total"], 2) == 8.0
+    assert ratio["total"] == pytest.approx(tokens["total"] / hours["total"])

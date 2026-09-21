@@ -13,6 +13,8 @@ import duckdb
 
 METRICS: list[tuple[str, str, str]] = [
     # key, label, note
+    ("screen_hours", "Screen time", "display on, this Mac — as Screen Time counts it"),
+    ("tok_out_per_hour", "Output tokens / hour", "output tokens ÷ screen time"),
     ("claude_sessions", "Sessions started", "interactive Claude Code, by first prompt"),
     ("automated_sessions", "Automated sessions", "subagents, eval loops, claude -p"),
     ("prompts", "Prompts sent", "human turns"),
@@ -28,7 +30,12 @@ METRICS: list[tuple[str, str, str]] = [
     ("projects", "Projects active", "repos with agent work or a commit"),
 ]
 
+# Metrics that are a quotient of two others: summing daily ratios is wrong, so
+# a window's value is sum(numerator) / sum(denominator).
+RATIOS: dict[str, tuple[str, str]] = {"tok_out_per_hour": ("tokens_out", "screen_hours")}
+
 _METRIC_SQL: dict[str, str] = {
+    "screen_hours": "SELECT day, sum(seconds) / 3600 v FROM daily WHERE source='screen' AND kind='display_span' GROUP BY 1",
     # Interactive = at least one human prompt in history.jsonl. Automated =
     # subagents and the `claude -p` runs an eval loop fans out (no prompt).
     "claude_sessions": "SELECT day, count(*) v FROM sessions WHERE source='claude_code' AND prompts > 0 GROUP BY 1",
@@ -71,20 +78,55 @@ def _rows(
 
 
 def _series(con: duckdb.DuckDBPyConnection, key: str, start: date, end: date) -> dict[str, float]:
+    if key in RATIOS:
+        num_key, den_key = RATIOS[key]
+        num, den = _series(con, num_key, start, end), _series(con, den_key, start, end)
+        return {d: num.get(d, 0.0) / v for d, v in den.items() if v > 0}
     sql = f"SELECT day, v FROM ({_METRIC_SQL[key]}) WHERE day BETWEEN ? AND ?"
     return {str(r["day"]): float(r["v"] or 0) for r in _rows(con, sql, [start, end])}
 
 
-def _weekly(series: dict[str, float], start: date, end: date) -> list[tuple[date, float]]:
-    """Sum per ISO week (Monday start), covering start..end."""
-    first = start - timedelta(days=start.weekday())
-    out: list[tuple[date, float]] = []
-    d = first
-    while d <= end:
-        total = sum(series.get((d + timedelta(days=i)).isoformat(), 0.0) for i in range(7))
-        out.append((d, total))
-        d += timedelta(days=7)
+def _total(con: duckdb.DuckDBPyConnection, key: str, start: date, end: date) -> float:
+    """A window's value: a sum, except for a ratio, which divides the summed
+    numerator by the summed denominator."""
+    if key in RATIOS:
+        num_key, den_key = RATIOS[key]
+        den = _total(con, den_key, start, end)
+        return _total(con, num_key, start, end) / den if den > 0 else 0.0
+    return sum(_series(con, key, start, end).values())
+
+
+def _rolling(
+    series: dict[str, float], end: date, n: int, size: int = 7
+) -> list[tuple[date, date, float]]:
+    """`n` buckets of `size` whole days each, the last ending on `end`.
+
+    Calendar weeks leave a stub every Monday; anchoring on the last complete
+    day instead means every bucket holds exactly `size` days, recomputed daily,
+    so "this week vs last" compares like with like on any day of the week."""
+    out: list[tuple[date, date, float]] = []
+    for i in range(n - 1, -1, -1):
+        stop = end - timedelta(days=size * i)
+        start = stop - timedelta(days=size - 1)
+        total = sum(series.get((start + timedelta(days=j)).isoformat(), 0.0) for j in range(size))
+        out.append((start, stop, total))
     return out
+
+
+def _blocks(
+    con: duckdb.DuckDBPyConnection, key: str, end: date, n: int, size: int = 7
+) -> list[tuple[date, date, float]]:
+    """`_rolling` for one metric, dividing block sums for a ratio metric."""
+    start = end - timedelta(days=n * size - 1)
+    if key in RATIOS:
+        num_key, den_key = RATIOS[key]
+        num = _rolling(_series(con, num_key, start, end), end, n, size)
+        den = _rolling(_series(con, den_key, start, end), end, n, size)
+        return [
+            (a, b, (nv / dv if dv > 0 else 0.0))
+            for (a, b, nv), (_, _, dv) in zip(num, den, strict=True)
+        ]
+    return _rolling(_series(con, key, start, end), end, n, size)
 
 
 def _growth(weeks: list[tuple[date, float]]) -> dict[str, float | None]:
@@ -104,29 +146,46 @@ def _growth(weeks: list[tuple[date, float]]) -> dict[str, float | None]:
 
 
 def trends(con: duckdb.DuckDBPyConnection, grain: str, window: int, today: date) -> dict[str, Any]:
-    # Growth always uses the last 8 full-ish weeks regardless of the window shown.
-    span_days = window if grain == "day" else window * 7
-    start = today - timedelta(days=max(span_days, 8 * 7) - 1)
+    """One row per metric. Periods still in progress (today, and the current
+    week) are marked `done: false`: they are drawn differently and kept out of
+    every comparison, so a half-finished week never reads as a collapse."""
+    # Weeks are rolling 7-day blocks ending on the last complete day, so growth
+    # always compares 7 whole days with the 7 whole days before them.
+    last = today - timedelta(days=1)
+    buckets = max(window if grain == "week" else 0, 9)
+    start = min(today - timedelta(days=window - 1), last - timedelta(days=buckets * 7 - 1))
     rows = []
     for key, label, note in METRICS:
         series = _series(con, key, start, today)
-        weeks = _weekly(series, start, today)
+        blocks = _blocks(con, key, last, buckets)
+        full = [(a, v) for a, _, v in blocks]
         if grain == "day":
             days = [today - timedelta(days=i) for i in range(window - 1, -1, -1)]
-            cells = [{"d": d.isoformat(), "v": series.get(d.isoformat(), 0.0)} for d in days]
+            cells = [
+                {"d": d.isoformat(), "v": series.get(d.isoformat(), 0.0), "done": d < today}
+                for d in days
+            ]
         else:
-            cells = [{"d": d.isoformat(), "v": v} for d, v in weeks[-window:]]
-        shown: list[float] = [float(c["v"]) for c in cells]  # type: ignore[arg-type]
+            cells = [
+                {"d": a.isoformat(), "end": b.isoformat(), "v": v, "done": True}
+                for a, b, v in blocks[-window:]
+            ]
+        done: list[float] = [float(c["v"]) for c in cells if c["done"]]  # type: ignore[arg-type]
+        first = cells[0]["d"]
+        window_start, window_end = date.fromisoformat(str(first)), last
         rows.append(
             {
                 "key": key,
                 "label": label,
                 "note": note,
-                "total": sum(shown),
-                "all_time": sum(_series(con, key, date(2000, 1, 1), today).values()),
-                "active": sum(1 for v in shown if v),
-                "spark": [v for _, v in weeks[-26:]],
-                "growth": _growth(weeks),
+                # Totals and the ramp cover complete periods only; the cell for
+                # the period in progress is still returned, flagged done=false.
+                "total": _total(con, key, window_start, window_end),
+                "all_time": _total(con, key, date(2000, 1, 1), last),
+                "active": sum(1 for v in done if v),
+                "periods": len(done),
+                "spark": [v for _, v in full[-26:]],
+                "growth": _growth(full),
                 "cells": cells,
             }
         )
@@ -135,12 +194,14 @@ def trends(con: duckdb.DuckDBPyConnection, grain: str, window: int, today: date)
         "window": window,
         "start": start.isoformat(),
         "end": today.isoformat(),
+        # Last day that has actually finished — every bucket ends here or before.
+        "complete_through": last.isoformat(),
         "rows": rows,
     }
 
 
 def kpis(con: duckdb.DuckDBPyConnection, s: date, e: date) -> dict[str, float]:
-    return {key: sum(_series(con, key, s, e).values()) for key, _, _ in METRICS}
+    return {key: _total(con, key, s, e) for key, _, _ in METRICS}
 
 
 def window_summary(con: duckdb.DuckDBPyConnection, start: date, end: date) -> dict[str, Any]:
@@ -206,13 +267,16 @@ def overview(con: duckdb.DuckDBPyConnection, week_start: date) -> dict[str, Any]
 
 
 def insights(con: duckdb.DuckDBPyConnection, today: date, narratives_dir: Path) -> dict[str, Any]:
-    """Rolling last 7 days vs the 7 before, plus the latest rolling narrative."""
-    out = window_summary(con, today - timedelta(days=6), today)
-    # 26 weekly totals per metric, drawn behind each tile.
-    spark_start = today - timedelta(days=26 * 7 - 1)
+    """Rolling 7 complete days vs the 7 before, plus the latest rolling narrative.
+
+    The window ends yesterday: today is still in progress, and counting a part
+    day against seven whole ones makes every metric look like it is falling."""
+    end = today - timedelta(days=1)
+    out = window_summary(con, end - timedelta(days=6), end)
+    out["as_of"] = today.isoformat()
+    # 26 rolling 7-day totals per metric, drawn behind each tile.
     for m in out["metrics"]:
-        weeks = _weekly(_series(con, m["key"], spark_start, today), spark_start, today)
-        m["spark"] = [v for _, v in weeks[-26:]]
+        m["spark"] = [v for _, _, v in _blocks(con, m["key"], end, 26)]
     latest = sorted(narratives_dir.glob("rolling-*.md")) if narratives_dir.exists() else []
     out["narrative"] = latest[-1].read_text() if latest else None
     out["narrative_end"] = latest[-1].stem.removeprefix("rolling-") if latest else None

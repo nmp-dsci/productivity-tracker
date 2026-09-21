@@ -1,0 +1,590 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>productivity-tracker — computer hours (S-09) &amp; complete periods</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  /* ── Design tokens: "Simply" system ─────────────────────────────── */
+  :root {
+    --bg: #EFEFEF;          /* page ground (simplychocolate body) */
+    --paper: #FFFFFF;
+    --ink: #1C1C1C;         /* text */
+    --ink-2: #3E3E3E;
+    --muted: #6B6B6B;
+    --line: #CFCFCF;        /* hairlines */
+    --line-2: #DDDDDD;
+    --wine: #6E2A2A;        /* hero panel */
+    --wine-ink: #FFFFFF;
+    --black: #0F0F0F;       /* footer / primary button */
+    --gold: #C9A24A;        /* foil accents */
+    --magenta: #B4386E;
+    --green: #6E8A2E;
+    --cocoa: #4A2C22;
+    --inv: #1C1C1C;        /* inverse surface: primary button, dark cards, hot nodes */
+    --inv-ink: #FFFFFF;
+    --code-bg: #E4E4E4;
+    --pill: #E0E0E0;
+    --chrome: #E4E4E4;
+    --gold-ink: #8A6A22;
+    color-scheme: light;
+    --cond: "Barlow Condensed", "Arial Narrow", Impact, sans-serif;
+    --sans: "Inter", Helvetica, Arial, sans-serif;
+    --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+
+  /* ── Dark: same system, inverted ground. Wine + foil tones unchanged. ── */
+  :root[data-theme="dark"] { --bg:#141414; --paper:#1C1C1C; --ink:#EFEFEF; --ink-2:#CFCFCF; --muted:#9A9A9A; --line:#3A3A3A; --line-2:#2A2A2A; --black:#0A0A0A; --inv:#2C2C2C; --inv-ink:#FFFFFF; --code-bg:#2A2A2A; --pill:#2E2E2E; --chrome:#232323; --gold-ink:#C9A24A; color-scheme: dark; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg:#141414; --paper:#1C1C1C; --ink:#EFEFEF; --ink-2:#CFCFCF; --muted:#9A9A9A; --line:#3A3A3A; --line-2:#2A2A2A; --black:#0A0A0A; --inv:#2C2C2C; --inv-ink:#FFFFFF; --code-bg:#2A2A2A; --pill:#2E2E2E; --chrome:#232323; --gold-ink:#C9A24A; color-scheme: dark; } }
+  *, *::before, *::after { box-sizing: border-box; }
+  html { background: var(--bg); color: var(--ink); }
+  body { margin: 0; font-family: var(--sans); font-size: 14px; line-height: 1.55; -webkit-font-smoothing: antialiased; }
+  :where(.grid, .flex, .split, .stats, .cards) > * { min-width: 0; }
+  :where(p, h1, h2, h3, h4, li, td, th, dd, figcaption) { overflow-wrap: anywhere; }
+  :where(img, svg) { max-width: 100%; height: auto; }
+  a { color: inherit; }
+  code { font-family: var(--mono); font-size: .86em; background: var(--code-bg); padding: 0 .3em; }
+  strong { font-weight: 600; }
+
+  /* type */
+  .eyebrow { font-family: var(--cond); font-weight: 600; font-size: 12px; letter-spacing: .18em; text-transform: uppercase; color: var(--muted); }
+  .eyebrow.pill { display: inline-block; background: var(--pill); color: var(--ink); padding: 4px 12px; }
+  h1, h2, h3, h4 { font-family: var(--cond); font-weight: 700; text-transform: uppercase; letter-spacing: .04em; line-height: 1.05; margin: 0; }
+  h1 { font-size: clamp(44px, 7vw, 84px); letter-spacing: .02em; }
+  h2 { font-size: 30px; letter-spacing: .05em; }
+  h3 { font-size: 20px; }
+  h4 { font-size: 16px; }
+  p { margin: 0; }
+  .lede { font-size: 16px; max-width: 46rem; margin-inline: auto; color: var(--ink-2); }
+  .center { text-align: center; }
+  .mono { font-family: var(--mono); }
+  .muted { color: var(--muted); }
+  .small { font-size: 12px; }
+
+  /* layout */
+  header.top { position: sticky; top: 0; z-index: 5; background: var(--bg); border-bottom: 1px solid var(--line-2); }
+  header.top .in { max-width: 1400px; margin: 0 auto; padding: 14px 24px; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 12px; }
+  header.top nav { display: flex; gap: 22px; font-family: var(--cond); font-weight: 600; font-size: 13px; letter-spacing: .12em; text-transform: uppercase; }
+  header.top nav a { text-decoration: none; }
+  header.top .brand { font-family: var(--cond); font-weight: 700; font-size: 26px; letter-spacing: .06em; text-transform: uppercase; text-align: center; white-space: nowrap; }
+  header.top .brand sup { font-size: 10px; letter-spacing: 0; }
+  header.top .right { display: flex; justify-content: flex-end; gap: 10px; }
+  main { max-width: none; }
+  section { padding: 72px 24px; }
+  section > * { max-width: 1400px; margin-left: auto; margin-right: auto; }
+  section#hero { padding: 0; } section#hero > .split { max-width: none; }
+  section.tight { padding-top: 40px; padding-bottom: 40px; }
+  .head { text-align: center; margin-bottom: 36px; display: grid; gap: 12px; justify-items: center; }
+  .split { display: grid; grid-template-columns: 1fr 1fr; min-height: 520px; }
+  @media (max-width: 860px) { .split { grid-template-columns: 1fr; min-height: 0; } header.top nav { display: none; } header.top .in { grid-template-columns: 1fr auto; } }
+  .panel { background: var(--wine); color: var(--wine-ink); display: grid; place-items: center; padding: 64px 40px; text-align: center; }
+  .panel .eyebrow { color: rgba(255,255,255,.75); }
+  .panel .lede { color: rgba(255,255,255,.9); }
+  .foil { position: relative; overflow: hidden; background: var(--cocoa); }
+  .foil svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+
+  /* buttons */
+  .btn { display: inline-flex; align-items: center; gap: 10px; font-family: var(--cond); font-weight: 600; font-size: 14px; letter-spacing: .14em; text-transform: uppercase; padding: 13px 24px; border: 1px solid var(--inv); background: var(--inv); color: var(--inv-ink); cursor: pointer; text-decoration: none; }
+  .btn:hover { filter: brightness(1.15); }
+  .btn.ghost { background: transparent; color: var(--ink); border-color: var(--ink); }
+  .btn.ghost:hover { background: rgba(128,128,128,.12); }
+  .panel .btn.ghost { color: #fff; border-color: #fff; } .panel .btn.ghost:hover { background: rgba(255,255,255,.1); }
+  .btn .arr { font-family: var(--sans); font-weight: 400; }
+  .btn.sm { padding: 9px 16px; font-size: 12px; }
+
+  /* tags / tabs */
+  .tag { font-family: var(--cond); font-weight: 600; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; padding: 3px 8px; border: 1px solid var(--line); color: var(--ink-2); display: inline-block; white-space: nowrap; }
+  .tag.yes { background: var(--inv); color: var(--inv-ink); border-color: var(--inv); }
+  .tag.next { border-color: var(--gold); color: var(--gold-ink); }
+  .tag.later { color: var(--muted); }
+  .tag.rec { background: var(--wine); border-color: var(--wine); color: #fff; }
+  .tag.decide { background: var(--gold); border-color: var(--gold); color: var(--ink); }
+  .utabs { display: flex; justify-content: center; gap: 28px; font-family: var(--cond); font-weight: 700; font-size: 18px; letter-spacing: .06em; text-transform: uppercase; flex-wrap: wrap; }
+  .utabs span { padding-bottom: 6px; border-bottom: 2px solid transparent; }
+  .utabs span.on { border-bottom-color: var(--ink); }
+
+  /* stats strip */
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink); }
+  .stats > div { padding: 28px 20px; text-align: center; border-right: 1px solid var(--line); }
+  .stats > div:last-child { border-right: 0; }
+  .stats .v { font-family: var(--cond); font-weight: 700; font-size: 56px; line-height: 1; letter-spacing: .02em; }
+  .stats .l { margin-top: 8px; }
+  .stats .d { margin-top: 6px; color: var(--muted); font-size: 12px; }
+  @media (max-width: 860px) { .stats { grid-template-columns: 1fr 1fr; } .stats > div:nth-child(2) { border-right: 0; } .stats > div:nth-child(-n+2) { border-bottom: 1px solid var(--line); } }
+
+  /* cards */
+  .cards { display: grid; gap: 1px; background: var(--line); border: 1px solid var(--line); }
+  .cards.c2 { grid-template-columns: 1fr 1fr; } .cards.c3 { grid-template-columns: repeat(3, 1fr); }
+  @media (max-width: 860px) { .cards.c2, .cards.c3 { grid-template-columns: 1fr; } }
+  .card { background: var(--paper); padding: 26px 28px; display: grid; gap: 12px; align-content: start; }
+  .card.dark { background: var(--inv); color: var(--inv-ink); } .card.dark code { background: rgba(255,255,255,.12); color: #eee; } .card.dark .muted { color: #bbb; }
+  .card.wine { background: var(--wine); color: #fff; } .card.wine code { background: rgba(0,0,0,.25); color: #fff; }
+  .card.rec { outline: 2px solid var(--ink); outline-offset: -2px; }
+  .card ul { margin: 0; padding-left: 18px; display: grid; gap: 6px; }
+  .bar { display: grid; grid-template-columns: 11rem minmax(0,1fr) 5rem; gap: 12px; align-items: center; font-size: 13px; }
+  .bar i { display: block; height: 10px; background: var(--ink); }
+  .bar .n { text-align: right; font-family: var(--mono); font-size: 12px; }
+
+  /* tables */
+  .tbl { overflow-x: auto; border-top: 1px solid var(--ink); }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; background: var(--paper); }
+  th { font-family: var(--cond); font-weight: 600; font-size: 12px; letter-spacing: .14em; text-transform: uppercase; text-align: left; padding: 12px 14px; border-bottom: 1px solid var(--ink); color: var(--ink-2); white-space: nowrap; }
+  td { padding: 12px 14px; border-bottom: 1px solid var(--line-2); vertical-align: top; }
+  .id { font-family: var(--mono); font-size: 11px; color: var(--muted); white-space: nowrap; }
+
+  /* figure */
+  figure { margin: 0; background: var(--paper); border: 1px solid var(--line); padding: 20px; }
+  figcaption { font-size: 12px; color: var(--muted); margin-top: 12px; max-width: 60rem; }
+  .fig text { font-family: var(--sans); fill: currentColor; }
+  .fig .box { fill: var(--bg); stroke: var(--ink); stroke-opacity: .5; stroke-width: 1; }
+  .fig .box.hot { fill: var(--inv); stroke: var(--inv); } .fig g.dark text { fill: var(--inv-ink); }
+  .fig .box.wine { fill: var(--wine); stroke: var(--wine); }
+  .fig .region { fill: none; stroke: var(--ink); stroke-opacity: .25; stroke-dasharray: 4 4; }
+  .fig .edge { fill: none; stroke: var(--ink); stroke-opacity: .7; stroke-width: 1.2; marker-end: url(#arrow); }
+  .fig .edge.live { stroke: var(--magenta); stroke-opacity: 1; }
+  .fig .lbl { font-size: 12px; } .fig .sm { font-size: 10px; opacity: .7; } .fig .ttl { font-family: var(--cond); font-size: 14px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
+
+  /* code block */
+  .code { background: var(--black); color: #E6E6E6; padding: 22px 24px; font-family: var(--mono); font-size: 12px; line-height: 1.6; overflow-x: auto; white-space: pre; }
+  .code .c { color: #8a8a8a; } .code .k { color: var(--gold); }
+
+  /* steps */
+  .steps { display: grid; grid-template-columns: repeat(8, 1fr); border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink); }
+  .steps > div { padding: 16px 8px; text-align: center; font-family: var(--cond); font-weight: 600; letter-spacing: .1em; text-transform: uppercase; font-size: 13px; border-right: 1px solid var(--line); }
+  .steps > div:last-child { border-right: 0; }
+  .steps > div.on { background: var(--inv); color: var(--inv-ink); }
+  @media (max-width: 860px) { .steps { grid-template-columns: repeat(4, 1fr); } }
+
+  /* forms */
+  form.q { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; padding-top: 16px; border-top: 1px solid var(--line-2); }
+  form.q label { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; }
+  input[type=radio], input[type=checkbox] { accent-color: var(--ink); width: 16px; height: 16px; margin: 0; }
+  input[type=text], .inp { font-family: var(--sans); font-size: 13px; padding: 10px 12px; border: 1px solid var(--ink); background: var(--paper); color: var(--ink); flex: 1; min-width: 12rem; }
+  .checks { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px 20px; }
+  @media (max-width: 860px) { .checks { grid-template-columns: 1fr 1fr; } }
+
+  /* alerts */
+  .note { border-left: 3px solid var(--ink); background: var(--paper); padding: 14px 18px; font-size: 13px; }
+  .note.warn { border-left-color: var(--gold); } .note.err { border-left-color: var(--magenta); } .note.info { border-left-color: var(--green); }
+
+  /* app mock */
+  .mock { border: 1px solid var(--ink); background: var(--bg); }
+  .mock .chrome { display: flex; gap: 6px; padding: 8px 12px; border-bottom: 1px solid var(--line); background: var(--chrome); }
+  .mock .chrome i { width: 9px; height: 9px; border: 1px solid var(--ink-2); display: inline-block; }
+  .mock .chrome span { margin-left: auto; font-family: var(--mono); font-size: 11px; color: var(--muted); }
+  .mock .app-top { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; padding: 14px 20px; border-bottom: 1px solid var(--line-2); }
+  .mock .app-top .nav { display: flex; gap: 16px; font-family: var(--cond); font-weight: 600; font-size: 12px; letter-spacing: .12em; text-transform: uppercase; }
+  .mock .app-top .nav span.on { border-bottom: 2px solid var(--ink); }
+  .mock .app-top .brand { font-family: var(--cond); font-weight: 700; font-size: 18px; letter-spacing: .06em; text-transform: uppercase; }
+  .mock .app-top .wk { text-align: right; font-size: 11px; color: var(--muted); }
+  .mock .kpis { display: grid; grid-template-columns: repeat(7, 1fr); border-bottom: 1px solid var(--line-2); }
+  .mock .kpis > div { padding: 18px 8px; text-align: center; border-right: 1px solid var(--line-2); }
+  .mock .kpis > div:last-child { border-right: 0; }
+  .mock .kpis .v { font-family: var(--cond); font-weight: 700; font-size: 30px; line-height: 1; }
+  .mock .kpis .l { font-family: var(--cond); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin-top: 6px; }
+  .mock .kpis .d { font-size: 11px; color: var(--muted); }
+  .mock .body { display: grid; grid-template-columns: 2fr 1fr; gap: 1px; background: var(--line-2); }
+  .mock .body > div { background: var(--bg); padding: 18px 20px; }
+  .mock .body .panel-wine { background: var(--wine); color: #fff; }
+  .mock .tl { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; font-size: 12px; }
+  .mock .tl li { display: grid; grid-template-columns: 2.6rem 1fr; gap: 10px; border-bottom: 1px solid rgba(255,255,255,.2); padding-bottom: 8px; }
+  .mock .tl b { font-family: var(--cond); letter-spacing: .1em; text-transform: uppercase; font-weight: 600; opacity: .8; }
+  @media (max-width: 860px) { .mock .kpis { grid-template-columns: repeat(4, 1fr); } .mock .body { grid-template-columns: 1fr; } .mock .app-top .nav { display: none; } .mock .app-top { grid-template-columns: 1fr 1fr; } }
+
+
+  /* trends heatmap */
+  .hm-toggle { display: inline-flex; border: 1px solid var(--ink); }
+  .hm-toggle button { font-family: var(--cond); font-weight: 600; font-size: 12px; letter-spacing: .14em; text-transform: uppercase; padding: 8px 16px; background: transparent; color: var(--ink); border: 0; cursor: pointer; }
+  .hm-toggle button.on { background: var(--inv); color: var(--inv-ink); }
+  .hm-rows { display: grid; gap: 1px; background: var(--line); border: 1px solid var(--line); }
+  .hm-row { display: grid; grid-template-columns: 11rem 7rem 7rem minmax(0,1fr); background: var(--paper); align-items: stretch; }
+  .hm-row .meta { padding: 10px 16px; border-right: 1px solid var(--line-2); display: grid; align-content: center; gap: 1px; }
+  .hm-row .sparkcell { padding: 8px 12px; border-right: 1px solid var(--line-2); display: grid; align-items: center; }
+  .hm-row .sparkcell svg { width: 100%; height: 40px; display: block; }
+  .hm-row .growth { padding: 8px 12px; border-right: 1px solid var(--line-2); display: grid; align-content: center; gap: 2px; }
+  .hm-row .meta .v { font-family: var(--cond); font-weight: 700; font-size: 24px; line-height: 1; }
+  .hm-row .meta .l { font-family: var(--cond); font-weight: 600; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+  .hm-row .meta .d { font-size: 10px; color: var(--muted); }
+  .hm-row .grid { padding: 6px 14px; overflow-x: auto; display: grid; align-items: center; }
+  .hm-row svg { display: block; }
+  .hm-row svg text { font-family: var(--sans); font-size: 9px; fill: var(--muted); }
+  .hm-row .g { font-family: var(--cond); font-weight: 700; font-size: 14px; letter-spacing: .04em; display: inline-flex; align-items: baseline; gap: 5px; white-space: nowrap; }
+  .hm-row .g small { font-family: var(--sans); font-weight: 400; font-size: 10px; color: var(--muted); letter-spacing: 0; }
+  .hm-row .g.up { color: #6E8A2E; } .hm-row .g.down { color: #B4382E; } .hm-row .g.flat { color: var(--muted); }
+  .hm-legend { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); justify-content: flex-end; margin-top: 10px; }
+  .hm-legend i { width: 11px; height: 11px; display: inline-block; background: var(--ink); }
+  @media (max-width: 860px) { .hm-row { grid-template-columns: 1fr 1fr 1fr; } .hm-row .grid { grid-column: 1 / -1; border-top: 1px solid var(--line-2); } .hm-row .growth { border-right: 0; } }
+
+  /* swatches */
+  .sw { display: grid; grid-template-columns: repeat(8, 1fr); gap: 1px; background: var(--line); border: 1px solid var(--line); }
+  .sw > div { background: var(--paper); padding: 10px; font-size: 11px; }
+  .sw i { display: block; height: 44px; margin-bottom: 8px; border: 1px solid var(--line-2); }
+  @media (max-width: 860px) { .sw { grid-template-columns: repeat(4, 1fr); } }
+
+  footer { background: var(--black); color: #cfcfcf; padding: 48px 24px; margin-top: 40px; }
+  .theme-btn { font-family: var(--cond); font-weight: 600; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; border: 1px solid var(--line); background: transparent; color: var(--ink); padding: 3px 8px; cursor: pointer; }
+  .theme-btn:hover { border-color: var(--ink); }
+  footer .in { max-width: 1400px; margin: 0 auto; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 24px; font-size: 12px; }
+  footer h4 { color: #fff; margin-bottom: 10px; }
+  @media (max-width: 860px) { footer .in { grid-template-columns: 1fr; } }
+</style>
+<style>
+  /* s01 additions */
+  .g.up { color: var(--green); } .g.down { color: var(--magenta); } .g.flat { color: var(--muted); }
+  .card h3 { font-size: 18px; }
+  .card .id { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+  form.q label .tag { margin-left: 4px; }
+  .cards.c3 .card ul { font-size: 13px; }
+  .mock .kpis { grid-template-columns: repeat(7, 1fr); }
+  @media (max-width: 1100px) { .fig { min-width: 0; } }
+  figure { overflow-x: auto; }
+</style>
+
+</head>
+<body>
+<header class="top">
+  <div class="in">
+    <nav>
+      <a href="#why">Why</a><a href="#evidence">Evidence</a><a href="#options">Options</a><a href="#design">Design</a><a href="#plan">Plan</a><a href="#decide">Decide</a>
+    </nav>
+    <div class="brand">productivity<sup>·</sup>tracker <span class="muted" style="font-size:13px">s01</span></div>
+    <div class="right"><button class="btn ghost sm" type="button" onclick="toggleTheme()">Theme</button></div>
+  </div>
+</header>
+
+<main>
+  <section id="hero">
+    <div class="split">
+      <div class="panel">
+        <div style="display:grid;gap:18px;max-width:34rem">
+          <div class="eyebrow">Source S-09 · branch feat/partial-periods-and-screentime</div>
+          <h1>Computer<br>hours</h1>
+          <p class="lede">Every metric in the tracker so far counts <em>output</em> — prompts, tokens, commits, pages. None of them counts <em>time at the machine</em>. This page proposes how to capture it, from Screen Time's own data or from our own sampler, and what it would look like next to the rest.</p>
+          <div class="flex" style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center">
+            <span class="tag yes">Built · 2026-09-21</span><span class="tag">D-07 pmset + knowledgeC backfill</span><span class="tag">D-10 in the demo</span><span class="tag">D-12 first + ratio</span>
+          </div>
+        </div>
+      </div>
+      <div class="foil">
+        <svg viewBox="0 0 600 520" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+          <defs><linearGradient id="g1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#C9A24A" stop-opacity=".95"/><stop offset="1" stop-color="#6E2A2A" stop-opacity=".9"/></linearGradient></defs>
+          <rect width="600" height="520" fill="#4A2C22"/>
+          <rect x="0" y="0" width="600" height="520" fill="url(#g1)" opacity=".18"/>
+          <g>
+            <text x="48" y="92" fill="#EFEFEF" font-family="Barlow Condensed" font-size="15" letter-spacing="3">A DAY, 00:00 → 24:00</text>
+            <g id="clockstrip"></g>
+            <text x="48" y="470" fill="#C9A24A" font-family="Barlow Condensed" font-size="15" letter-spacing="3">SCREEN ON · ACTIVE · IDLE · ASLEEP</text>
+          </g>
+        </svg>
+      </div>
+    </div>
+  </section>
+
+  <section class="tight">
+    <div class="stats">
+      <div><div class="v">4.3<span style="font-size:26px"> MB</span></div><div class="l">knowledgeC.db on this Mac</div><div class="d">exists, live (written today) — but reads are <code>authorization denied</code> without Full&nbsp;Disk&nbsp;Access</div></div>
+      <div><div class="v">7<span style="font-size:26px"> days</span></div><div class="l">pmset log retention</div><div class="d">display on/off events, 2026-09-14 → today. Free, no permission needed.</div></div>
+      <div><div class="v">~15</div><div class="l">lines of parser</div><div class="d">the entire capture cost of the proposed build: one <code>pmset -g log</code> reader</div></div>
+      <div><div class="v">0</div><div class="l">trackers installed</div><div class="d">no ActivityWatch, RescueTime or Timing — nothing is recording this today</div></div>
+    </div>
+  </section>
+
+  <section id="shipped" class="tight">
+    <div class="head">
+      <div class="eyebrow pill">Already done on this branch</div>
+      <h2>Incomplete periods no longer count</h2>
+      <p class="lede">The first half of the request, implemented and tested before this page was written.</p>
+    </div>
+    <div class="cards c2">
+      <div class="card">
+        <h4>The artefact you spotted</h4>
+        <p>Today is Monday. The calendar-week bucket for 2026-09-21 held <strong>one day</strong> of activity and was drawn, totalled and compared against <strong>seven-day</strong> weeks behind it:</p>
+        <div class="bar"><span>week of 09-07</span><i style="width:63%"></i><span class="n">139</span></div>
+        <div class="bar"><span>week of 09-14</span><i style="width:100%"></i><span class="n">221</span></div>
+        <div class="bar"><span>week of 09-21</span><i style="width:12%;background:var(--magenta)"></i><span class="n">27</span></div>
+        <p class="small muted">Prompts per calendar week, real data. The last bar was not an 88% collapse — it was Monday morning.</p>
+        <p style="margin-top:14px"><strong>Now: rolling 7-day blocks, recomputed daily.</strong> The strip no longer uses calendar weeks at all. Every block is seven whole days, the last one ending on the last complete day, so the comparison holds on any day of the week:</p>
+        <div class="bar"><span>7 days to 09-06</span><i style="width:100%"></i><span class="n">264</span></div>
+        <div class="bar"><span>7 days to 09-13</span><i style="width:53%"></i><span class="n">139</span></div>
+        <div class="bar"><span>7 days to 09-20</span><i style="width:84%;background:var(--green)"></i><span class="n">221</span></div>
+        <p class="small muted">Same metric, same day, live from <code>/api/trends?grain=week</code>: <strong>▲ 59% block-on-block</strong> where the calendar view showed a crash.</p>
+      </div>
+      <div class="card rec">
+        <h4>What changed</h4>
+        <ul>
+          <li><strong>Weeks are rolling.</strong> <code>_rolling()</code> builds 26 blocks of exactly seven days each, anchored on the last complete day and recalculated every day — no Monday stub, ever. Each cell carries its own <code>d</code> → <code>end</code>, and the tooltip reads “7 days to 2026-09-20”.</li>
+          <li>Growth follows the same blocks: the last 7 days vs the 7 before, and the last 4 blocks vs the prior 4, so the tiles and the strips finally agree.</li>
+          <li><strong>Days still show today</strong>, because seeing the day accumulate is useful — but it is drawn as a <strong>dashed outline</strong>, never a ramp colour, and is excluded from the row total, the <code>active</code> count, the colour scale, the sparkline and both growth figures.</li>
+          <li>The rolling tiles end <strong>yesterday</strong>: 7 complete days vs the 7 before, with today named in the lede instead of silently dragging the window down.</li>
+          <li>The API says so out loud: <code>complete_through</code> on <code>/api/trends</code>, <code>as_of</code> on <code>/api/insights</code>, <code>done</code> on every cell.</li>
+          <li>Three behaviour tests cover it, including one that asserts the blocks are seven days long and tile without gaps. 25 pytest + 4 vitest green.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section id="why">
+    <div class="head">
+      <div class="eyebrow pill">The metric</div>
+      <h2>One number: screen time</h2>
+      <p class="lede">Exactly what the Screen Time panel puts at the top — hours the display was on and the Mac awake, per day. One strip, one tile, no app breakdown, no idle rules to argue about.</p>
+    </div>
+    <div class="cards c2">
+      <div class="card rec">
+        <h4><span class="id">M-01</span> Screen time</h4>
+        <p><strong>Definition:</strong> minutes where the display is backlit and the machine is awake, bucketed into local days — the same thing Apple shows as “Screen Time” for this Mac.</p>
+        <p><strong>Shape:</strong> a normal metric row like every other one. It formats as <code>8h 42m</code>, gets a strip, a sparkline and block-on-block growth, and sits in <code>METRICS</code> beside prompts and commits.</p>
+        <p><strong>Check:</strong> it is readable off System Settings → Screen Time, so it is verifiable by eye on any day. If we drift more than a couple of percent, the collector is wrong.</p>
+      </div>
+      <div class="card">
+        <h4><span class="id">M-06</span> Output per hour <span class="tag next">derived</span></h4>
+        <p>Nothing new to collect: output tokens, commits, PRs and agent $ divided by M-01. It is the reason to capture hours at all — a heavy day and a long day stop looking the same.</p>
+        <p class="small muted">One extra ratio row, computed in the API from two numbers we already have.</p>
+      </div>
+    </div>
+    <div class="note" style="margin-top:20px"><strong>Explicitly not in v1.</strong> Per-app hours, app categories, website domains, idle/active split, pickups and notification counts were all on the table and are all cut. They need either a permanent sampler or Full Disk Access, and each one raises a privacy question that a single hours number does not. The design below keeps the door open — they are additional event kinds on the same source — but nothing is built for them now.</div>
+  </section>
+
+  <section id="evidence" class="tight">
+    <div class="head">
+      <div class="eyebrow pill">Measured, not assumed</div>
+      <h2>What this Mac actually exposes</h2>
+      <p class="lede">Everything in this table was run on this machine today, from this repo’s shell. The rows marked “not used in v1” are the options that were on the table and got cut.</p>
+    </div>
+    <div class="tbl">
+      <table>
+        <thead><tr><th>Probe</th><th>Result</th><th>Reading</th></tr></thead>
+        <tbody>
+          <tr><td><code>sqlite3 ~/Library/…/Knowledge/knowledgeC.db "select count(*) …"</code></td><td class="mono">Error: authorization denied</td><td>Apple’s own store is there and current (4.3&nbsp;MB, written 13:08 today) but TCC-protected. The <em>running process</em> needs Full Disk Access — for us that means Terminal, and later the launchd job’s binary.</td></tr>
+          <tr><td><code>ls ~/Library/Application Support/Knowledge/</code></td><td class="mono">Operation not permitted</td><td>Same wall: the directory listing is blocked, the single file stat is not.</td></tr>
+          <tr><td><code>pmset -g log | grep "Display is turned"</code></td><td class="mono">8,966 lines · 2026-09-14 → 2026-09-21</td><td>Screen on/off transitions, no permission required — but only ~7 days of history, so it can never backfill the year.</td></tr>
+          <tr><td><code>lsappinfo front</code></td><td class="mono">ASN:0x0-0x2db0dae → "Google Chrome"</td><td>Per-app detail is available without any permission grant — <strong>not used in v1</strong>, recorded here so the option stays costed.</td></tr>
+          <tr><td><code>ioreg -c IOHIDSystem | grep HIDIdleTime</code></td><td class="mono">119,720,222,500 ns ≈ 120 s</td><td>Idle time is free if we ever want an active/idle split — <strong>not used in v1</strong>.</td></tr>
+          
+          <tr><td><code>ls /Applications | grep -i activitywatch…</code></td><td class="mono">(nothing)</td><td>No third-party tracker is installed, so nothing is silently already recording this.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="options">
+    <div class="head">
+      <div class="eyebrow pill">The decision</div>
+      <h2>Three ways to get that one number</h2>
+      <p class="lede">Cutting the metric down to screen time cuts the options down with it. Costs are as visible as benefits on purpose.</p>
+    </div>
+    <div class="cards c3">
+      <div class="card rec">
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span class="id">O-B</span><h3 style="margin-right:auto">pmset log</h3><span class="tag rec">ship this</span></div>
+        <p class="small muted">Parse <code>pmset -g log</code> for display on/off and sleep/wake transitions.</p>
+        <p><strong>Gets you</strong></p>
+        <ul>
+          <li>M-01, exactly, from Apple’s own power log — the same transitions Screen Time counts.</li>
+          <li><strong>Zero permissions</strong>: no Full Disk Access, no Accessibility prompt, no new daemon.</li>
+          <li>~15 lines of parser, and it rides the 5-minute collector that already runs.</li>
+          <li>Keeps recording even when our collector is down — we just read the log afterwards.</li>
+        </ul>
+        <p><strong>Costs</strong></p>
+        <ul>
+          <li>7-day retention: if the collector is off for longer than a week, those days are gone for good.</li>
+          <li>A text format, not an API — Apple could reword the lines, so the parser needs a fixture test and a loud failure.</li>
+          <li>No history before today beyond those 7 days.</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span class="id">O-A</span><h3 style="margin-right:auto">knowledgeC.db</h3><span class="tag next">optional backfill</span></div>
+        <p class="small muted">Apple’s own Screen Time store — <code>/display/isBacklit</code> gives the same metric.</p>
+        <p><strong>Gets you</strong> roughly a month of screen-time history on day one, so the strip is not empty for its first 26 blocks — and a second opinion to reconcile the pmset parser against.</p>
+        <p><strong>Costs</strong> a manual Full Disk Access grant in System Settings for whatever process reads it, and a tolerant reader for a private, undocumented schema that has changed between macOS releases. Retention is Apple’s call (~30 days), so it can only ever be a backfill, never the record.</p>
+        <p class="small muted"><strong>Verdict:</strong> worth one afternoon if you want the back-history; skip it entirely and the metric still works from today onward.</p>
+      </div>
+      <div class="card">
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span class="id">O-C</span><h3 style="margin-right:auto">Our own sampler</h3><span class="tag later">not needed now</span></div>
+        <p class="small muted">A launchd job sampling frontmost app + idle every 60 s.</p>
+        <p><strong>Gets you</strong> the things we just cut — per-app hours, idle/active split — at ~37 ms per sample and no permission grant.</p>
+        <p><strong>Costs</strong> a permanent extra job and a stream of per-app events, to answer questions v1 is not asking. <strong>Cut</strong> — but the collector is written so this drops in later as one more event kind if you ever want the app breakdown back.</p>
+      </div>
+    </div>
+    <div class="cards c2" style="margin-top:1px">
+      <div class="card">
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span class="id">O-D</span><h3 style="margin-right:auto">ActivityWatch</h3><span class="tag later">no</span></div>
+        <p><strong>Costs</strong> a second daemon and a second event store for a number we can get in 15 lines; its default port <strong>5600 is already taken</strong> by the DABStep-loop MLflow here; it captures window titles by default, which our own privacy rule forbids. Overkill for one metric.</p>
+      </div>
+      <div class="card">
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span class="id">O-E</span><h3 style="margin-right:auto">Infer from events we already have</h3><span class="tag later">dishonest</span></div>
+        <p><strong>Gets you</strong> a number today, free, back to February. <strong>Costs</strong> its meaning: it measures when agents were running, not when you were at the machine. Reading a PR, drawing a diagram or being in a call all read as zero. Fine as a QA cross-check, wrong as “screen time”.</p>
+      </div>
+    </div>
+    <div class="note" style="margin-top:20px"><strong>Recommendation — O-B alone, with O-A as a one-off if you want the back-history.</strong> One metric, one parser, no permission grants, no new daemon. That is the whole build.</div>
+  </section>
+
+  <section id="design">
+    <div class="head">
+      <div class="eyebrow pill">Proposed design</div>
+      <h2>One parser, one strip</h2>
+      <p class="lede">Deliberately boring: the new source lands in the same event stream, the same rollups and the same UI vocabulary as everything else.</p>
+    </div>
+    <figure>
+      <svg class="fig" viewBox="0 0 1180 190" role="img" aria-label="screen source pipeline">
+        <defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="currentColor" opacity=".7"/></marker></defs>
+        <g><rect class="box" x="24" y="40" width="250" height="46" rx="2"/><text class="lbl" x="38" y="62" fill="currentColor">pmset -g log</text><text class="sm" x="38" y="78" fill="currentColor">display on/off · sleep/wake · 7 days</text></g>
+        <g><rect class="box" x="24" y="100" width="250" height="46" rx="2" stroke-dasharray="4 3"/><text class="lbl" x="38" y="122" fill="currentColor">knowledgeC.db (optional)</text><text class="sm" x="38" y="138" fill="currentColor">one-off ~30 d backfill · needs FDA</text></g>
+        <g><rect class="box hot" x="340" y="66" width="210" height="60" rx="2"/><g class="dark"><text class="ttl" x="356" y="92">collectors/screen.py</text><text class="sm" x="356" y="112">spans → daily minutes</text></g></g>
+        <g><rect class="box" x="600" y="66" width="200" height="60" rx="2"/><text class="ttl" x="616" y="92" fill="currentColor">events/screen/*.jsonl</text><text class="sm" x="616" y="112" fill="currentColor">append-only · deterministic id</text></g>
+        <g><rect class="box" x="850" y="66" width="160" height="60" rx="2"/><text class="ttl" x="866" y="92" fill="currentColor">daily.parquet</text><text class="sm" x="866" y="112" fill="currentColor">+ sum(seconds)</text></g>
+        <g><rect class="box wine" x="1060" y="66" width="104" height="60" rx="2"/><g class="dark"><text class="ttl" x="1074" y="92">1 strip</text><text class="sm" x="1074" y="112">+ 1 ratio</text></g></g>
+        <path class="edge" d="M274 63 L340 88"/><path class="edge" d="M274 123 L340 108"/>
+        <path class="edge" d="M550 96 L600 96"/><path class="edge" d="M800 96 L850 96"/><path class="edge" d="M1010 96 L1060 96"/>
+      </svg>
+      <figcaption>Nothing to the right of <code>screen.py</code> knows where the spans came from — which is what makes the knowledgeC backfill a safe “maybe later”, and the per-app sampler a safe “maybe never”.</figcaption>
+    </figure>
+
+    <div class="cards c2" style="margin-top:28px">
+      <div class="card">
+        <h4>Events</h4>
+        <div class="code">{"source":"screen","kind":"<span class="k">display_span</span>",
+ "ts":"2026-09-21T08:06:47Z","seconds":4621,
+ "meta":{"src":"pmset"}}
+
+<span class="c"># a span crossing local midnight is split, so
+# every event belongs to exactly one local day</span>
+{"source":"screen","kind":"<span class="k">display_span</span>",
+ "ts":"2026-09-20T13:58:00Z","seconds":120,
+ "meta":{"src":"pmset","split":true}}</div>
+        <p class="small muted"><code>event_id = sha256("screen", "display_span", start_ts)</code> — re-reading the same 7-day pmset window every 5 minutes produces identical ids, so the append-only store dedupes them exactly like every other source. No app names, no titles, no URLs: the entire payload is a start, a duration and a source tag.</p>
+      </div>
+      <div class="card">
+        <h4>Changes, module by module</h4>
+        <ul>
+          <li><code>schema.py</code> — add <code>"screen"</code> to the <code>Source</code> literal and a <code>seconds: float | None</code> field (the first source that measures duration rather than counting things).</li>
+          <li><code>collectors/screen.py</code> — new, ~15 lines of parsing plus span/midnight handling; an optional <code>knowledge_spans()</code> guarded by a readability check.</li>
+          <li><code>store/queries/daily.sql</code> — one line: <code>sum(seconds) AS seconds</code>.</li>
+          <li><code>api/queries.py</code> — one <code>METRICS</code> row (<code>screen_hours</code>) and one derived ratio (<code>tok_out_per_hour</code>).</li>
+          <li>Frontend — three lines: the key in <code>METRIC_ORDER</code>, and an <code>hours</code> formatter so it reads <code>8h 42m</code> instead of <code>8.7</code>.</li>
+          <li>No new launchd job, no new permissions, no <code>enrich/</code> changes.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="head" style="margin-top:44px;margin-bottom:20px"><div class="eyebrow">What it looks like</div><h3>Trends, with screen time in it</h3></div>
+    <div class="mock">
+      <div class="chrome"><i></i><i></i><i></i><span>127.0.0.1:8090/trends</span></div>
+      <div class="app-top"><div class="brand">productivity<sup>·</sup>tracker</div><div class="nav"><span class="on">Trends</span><span>Overview</span><span>Agents</span><span>GitHub</span><span>Projects</span><span>Ship log</span></div><div class="wk">7 days to 20 Sep</div></div>
+      <div class="kpis">
+        <div><div class="v">8h 42m</div><div class="l">Screen time</div><div class="d" style="color:var(--green)">▲ 12%</div></div>
+        <div><div class="v">1.2M</div><div class="l">Out tokens / hr</div><div class="d" style="color:var(--green)">▲ 21%</div></div>
+        <div><div class="v">3,873</div><div class="l">Prompts</div><div class="d" style="color:var(--green)">▲ 18%</div></div>
+        <div><div class="v">30.6M</div><div class="l">Out tokens</div><div class="d" style="color:var(--green)">▲ 34%</div></div>
+        <div><div class="v">139</div><div class="l">Commits</div><div class="d" style="color:var(--magenta)">▼ 6%</div></div>
+        <div><div class="v">11</div><div class="l">PRs merged</div><div class="d" style="color:var(--green)">▲ 22%</div></div>
+        <div><div class="v">$412</div><div class="l">Agent $</div><div class="d" style="color:var(--green)">▲ 14%</div></div>
+      </div>
+      <div style="padding:16px 20px">
+        <div class="hm-rows">
+          <div class="hm-row"><div class="meta"><div class="v">1,284h</div><div class="l">Screen time</div><div class="d">all time · 61h over 26 complete 7-day blocks</div></div><div class="sparkcell" id="mk-s1"></div><div class="growth"><span class="g up">▲ 12%<small>wow</small></span><span class="g up">▲ 5%<small>4w</small></span></div><div class="grid" id="mk-g1"></div></div>
+          <div class="hm-row"><div class="meta"><div class="v">1.2M</div><div class="l">Out tokens / hour</div><div class="d">ratio row · scale is per-row</div></div><div class="sparkcell" id="mk-s3"></div><div class="growth"><span class="g up">▲ 21%<small>wow</small></span><span class="g up">▲ 11%<small>4w</small></span></div><div class="grid" id="mk-g3"></div></div>
+          <div class="hm-row"><div class="meta"><div class="v">3,939</div><div class="l">Prompts</div><div class="d">existing row, for scale</div></div><div class="sparkcell" id="mk-s2"></div><div class="growth"><span class="g up">▲ 18%<small>wow</small></span><span class="g flat">– 0%<small>4w</small></span></div><div class="grid" id="mk-g2"></div></div>
+        </div>
+        <div class="small muted" style="text-align:right;margin-top:8px">day grain: the dashed cell on the right of every strip is today — drawn, never counted</div>
+      </div>
+    </div>
+    <p class="small muted" style="margin-top:10px">Mock rendered in the app’s own CSS and ramp (<code>DESIGN.md</code>), with synthetic numbers.</p>
+  </section>
+
+  <section id="plan" class="tight">
+    <div class="head">
+      <div class="eyebrow pill">Build plan</div>
+      <h2>Three phases, half a day</h2>
+    </div>
+    <div class="steps"><div class="on">1 · Parse</div><div class="on">2 · Store</div><div class="on">3 · Surface</div><div>4 · Backfill (optional)</div></div>
+    <div class="tbl" style="margin-top:24px">
+      <table>
+        <thead><tr><th>Phase</th><th>Work</th><th>Proof it works</th><th>Size</th></tr></thead>
+        <tbody>
+          <tr><td class="id">P-1</td><td><code>collectors/screen.py</code>: parse <code>pmset -g log</code> into display spans, split at local midnight, drop dark wakes; <code>seconds</code> on the event model; register it in the existing 5-minute collect.</td><td>Unit tests over a captured <code>pmset -g log</code> fixture — a plain day, a sleep in the middle, a span crossing midnight, a dark wake, a log that ends mid-span. Run the collector twice, assert zero new events.</td><td>~120 LOC</td></tr>
+          <tr><td class="id">P-2</td><td><code>sum(seconds)</code> in <code>daily.sql</code>; local-day bucketing through the existing <code>timezone(tz, ts)</code> path.</td><td>Rollup test: a 23:50 → 00:30 span lands 10 minutes in one local day and 30 in the next. <strong>Reconciliation:</strong> one real day compared by hand against System Settings → Screen Time, delta recorded in the repo.</td><td>~40 LOC</td></tr>
+          <tr><td class="id">P-3</td><td><code>screen_hours</code> in <code>METRICS</code>, the <code>tok_out_per_hour</code> ratio, an <code>8h 42m</code> formatter, and the key in <code>METRIC_ORDER</code>.</td><td>API test asserts the new keys and that demo mode carries hours but nothing identifying; vitest on the formatter.</td><td>~60 LOC</td></tr>
+          <tr><td class="id">P-4</td><td><em>Only if D-07 says yes:</em> knowledgeC <code>/display/isBacklit</code> reader behind a capability check, one-off <code>pt backfill screen --days 30</code>.</td><td>Fixture-driven parser test; a readability probe that logs a clear line instead of crashing when Full Disk Access is absent; backfilled days compared against pmset where the two overlap.</td><td>~120 LOC</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="risks" class="tight">
+    <div class="head"><div class="eyebrow pill">Before you say yes</div><h2>Failure modes I expect</h2></div>
+    <div class="cards c3">
+      <div class="card"><h4>The 7-day window</h4><p>pmset keeps about a week. If the collector stops for longer — laptop shelved, launchd job dies quietly — those days are unrecoverable, and the strip shows a hole rather than an error.</p><p class="small muted"><strong>Mitigation:</strong> the collector records the log’s oldest timestamp each run, and the UI marks days where we know the log had already rolled past.</p></div>
+      <div class="card"><h4>Clock and timezone</h4><p>pmset prints local time with an offset; knowledgeC uses the 2001 Mac epoch; our events are UTC. Three clocks into one local-day bucket is exactly where an off-by-one day comes from.</p><p class="small muted"><strong>Mitigation:</strong> every path normalises through <code>schema.utc()</code>, and a rollup test pins a midnight-crossing span to both days.</p></div>
+      <div class="card"><h4>Sleep, lid, and external displays</h4><p>“Display off” on a clamshell driving an external monitor does not mean you stopped, and dark wakes for backups look like usage.</p><p class="small muted"><strong>Mitigation:</strong> dark wakes are filtered by assertion type; the hand reconciliation against Apple’s own panel is what catches the rest.</p></div>
+      <div class="card"><h4>This Mac only</h4><p>Screen Time aggregates across devices when syncing is on; we only ever see this machine, so our total reads lower than the panel if you use an iPad or a second Mac.</p><p class="small muted"><strong>Mitigation:</strong> label the row “this Mac” rather than implying it is universal.</p></div>
+      <div class="card"><h4>A text format, not an API</h4><p><code>pmset -g log</code> is human-readable output Apple has no contract to keep stable. A macOS upgrade could silently reword the lines and quietly zero the metric.</p><p class="small muted"><strong>Mitigation:</strong> the parser fails loudly on an unparseable day rather than returning zero, and a fixture test pins today’s format.</p></div>
+      <div class="card"><h4>Hours are a seductive number</h4><p>A screen-time row invites optimising for the row: longer days look like better days, which is precisely backwards.</p><p class="small muted"><strong>Mitigation:</strong> ship M-06 in the same change, so hours always appear next to output-per-hour rather than on their own.</p></div>
+    </div>
+  </section>
+
+  <section id="decide">
+    <div class="head">
+      <div class="eyebrow pill">Decided · built</div>
+      <h2>What you chose, and what it did</h2>
+    </div>
+    <div class="tbl">
+      <table>
+        <thead><tr><th>ID</th><th>Your answer</th><th>Outcome</th></tr></thead>
+        <tbody>
+          <tr><td class="id">D-07</td><td>pmset <strong>plus</strong> the one-off knowledgeC backfill of ~30 days</td><td>Both built. <code>pt collect</code> parses <code>pmset -g log</code> on every 5-minute tick and has already stored 7 days (61h 28m). <code>pt screen-backfill --days 30</code> is written and tested, and currently answers: <em>“cannot read knowledgeC.db … Grant Full Disk Access to this terminal”</em> — it runs the moment you grant it.</td></tr>
+          <tr><td class="id">D-10</td><td>Yes — hours are an aggregate like any other metric</td><td>No redaction added: a span is a start and a duration, so demo mode passes it through untouched. <code>tests/test_privacy.py</code> still holds.</td></tr>
+          <tr><td class="id">D-12</td><td>First tile and first strip, ratio after it</td><td><code>METRIC_ORDER</code> now starts <code>screen_hours → tok_out_per_hour</code>, in both the tiles and the strips.</td></tr>
+          <tr><td class="id">—</td><td>“do all phases”</td><td>P-1 parser, P-2 rollup, P-3 UI and P-4 the knowledgeC reader are all in. 32 pytest + 5 vitest green; ruff and mypy strict clean.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="note warn" style="margin-top:20px"><strong>One thing left, and it is yours:</strong> System Settings → Privacy &amp; Security → Full Disk Access → add your terminal, then <code>uv run pt screen-backfill --days 30 &amp;&amp; uv run pt rollup</code>. Until then the screen-time strip starts on 2026-09-14, which is as far back as <code>pmset</code> remembers.</div>
+  </section>
+</main>
+
+<footer style="background:var(--black);color:#E6E6E6;padding:40px 24px">
+  <div style="max-width:1400px;margin:0 auto;display:flex;gap:16px;flex-wrap:wrap;justify-content:space-between;align-items:baseline">
+    <div class="eyebrow" style="color:#9A9A9A">productivity-tracker · s01 · branch feat/partial-periods-and-screentime</div>
+    <div class="small" style="color:#9A9A9A">Rolling-7-day fix and the screen-time metric both shipped · knowledgeC backfill waiting on Full Disk Access</div>
+  </div>
+</footer>
+
+<script>
+  function toggleTheme(){ const r=document.documentElement; const cur=r.dataset.theme || (matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'); r.dataset.theme = cur==='dark'?'light':'dark'; }
+  // hero: a day as a strip of hours, lit where the screen was on
+  (function(){
+    const g=document.getElementById('clockstrip'); if(!g) return;
+    const on=[[7.5,12.4],[13.1,18.9],[20.2,23.4]], act=[[8.1,11.6],[13.6,17.2],[20.5,22.1]];
+    const X=48, W=504, top=120, rowH=52;
+    let s='';
+    for(let h=0;h<=24;h+=3){ const x=X+(h/24)*W; s+=`<line x1="${x}" y1="${top-8}" x2="${x}" y2="${top+3*rowH+16}" stroke="#EFEFEF" stroke-opacity=".12"/><text x="${x}" y="${top+3*rowH+34}" fill="#EFEFEF" fill-opacity=".45" font-family="Inter" font-size="10">${String(h).padStart(2,'0')}</text>`; }
+    const band=(spans,y,fill,op)=>spans.forEach(([a,b])=>{ s+=`<rect x="${X+(a/24)*W}" y="${y}" width="${((b-a)/24)*W}" height="26" fill="${fill}" fill-opacity="${op}"/>`; });
+    band(on, top, '#C9A24A', .85); band(act, top+rowH, '#EFEFEF', .9); band([[0,7.5],[23.4,24]], top+2*rowH, '#EFEFEF', .12);
+    ['SCREEN ON','ACTIVE','ASLEEP'].forEach((t,i)=>{ s+=`<text x="${X}" y="${top+i*rowH-6}" fill="#EFEFEF" fill-opacity=".6" font-family="Barlow Condensed" font-size="12" letter-spacing="2">${t}</text>`; });
+    g.innerHTML=s;
+  })();
+  // mock strips, same ramp and geometry as the real app
+  (function(){
+    const RAMP=['#B4382E','#C9633A','#C9A24A','#8F9A3C','#6E8A2E'];
+    const rnd=(seed=>()=>((seed=seed*16807%2147483647)/2147483647))(42);
+    const level=(v,max)=>v<=0?0:Math.min(5,1+Math.floor(Math.log1p(v)/Math.log1p(max)*4.999));
+    function strip(el, vals){ const C=5,G=1,Hc=26,top=13,W=vals.length*(C+G),H=top+Hc; const max=Math.max(...vals.slice(0,-1));
+      let s=`<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="width:100%;height:auto;max-height:56px"><rect x="0" y="${top}" width="${W-G}" height="${Hc}" fill="var(--ink)" fill-opacity=".04"/>`;
+      vals.forEach((v,i)=>{ const last=i===vals.length-1; const l=level(v,max);
+        s+= last ? `<rect x="${i*(C+G)}" y="${top}" width="${C}" height="${Hc}" fill="none" stroke="var(--muted)" stroke-width="1" stroke-dasharray="2 2"/>`
+                 : `<rect x="${i*(C+G)}" y="${top}" width="${C}" height="${Hc}" fill="${l?RAMP[l-1]:'none'}"/>`; });
+      el.innerHTML=s+'</svg>'; }
+    function spark(el, vals){ const W=200,H=80,n=vals.length,max=Math.max(...vals);
+      const pts=vals.map((v,i)=>[(i/(n-1))*W, H-(v/max)*H*0.9]); const line=pts.map((p,i)=>(i?'L':'M')+p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' ');
+      el.innerHTML=`<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><path d="${line} L${W} ${H} L0 ${H} Z" fill="var(--ink)" fill-opacity=".1"/><path d="${line}" fill="none" stroke="var(--ink)" stroke-opacity=".7" stroke-width="1.5" vector-effect="non-scaling-stroke"/></svg>`; }
+    const series=(n,base,amp)=>Array.from({length:n},(_,i)=>Math.max(0, base + amp*Math.sin(i/6) + amp*0.7*rnd() - (i%7>4?base*0.55:0)));
+    [['mk-g1','mk-s1',9,3],['mk-g2','mk-s2',6.5,2.6],['mk-g3','mk-s3',1.1,0.5]].forEach(([g,sp,b,a])=>{
+      strip(document.getElementById(g), series(120,b,a)); spark(document.getElementById(sp), series(26,b,a)); });
+  })();
+</script>
+
+</body>
+</html>

@@ -1,4 +1,4 @@
-import { delta, fmt, growthText, level, usd } from './format';
+import { delta, fmt, growthText, hours, level, usd } from './format';
 
 test('fmt and usd', () => {
   expect(fmt(30608203)).toBe('30.6M');
@@ -19,4 +19,11 @@ test('level is log-scaled with empty at 0', () => {
   expect(level(0, 100)).toBe(0);
   expect(level(100, 100)).toBe(5);
   expect(level(1, 100)).toBe(1);
+});
+
+test('hours read like the Screen Time panel', () => {
+  expect(hours(8.7)).toBe('8h 42m');
+  expect(hours(0.7)).toBe('42m');
+  expect(hours(0)).toBe('0m');
+  expect(hours(1)).toBe('1h 00m');
 });

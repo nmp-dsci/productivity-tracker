@@ -21,6 +21,7 @@ agents, GitHub, AWS and the review pages generated along the way.
 | Lavish pages | review pages created/updated per project | `**/.lavish/sNN_*.html` |
 | Eval runs | run per project with headline metrics | `evals/runs/*.json`, `runs/*/run.json` |
 | no-mistakes | gate pushes and pipeline pass/fail | `~/.no-mistakes/logs/daemon.log` |
+| Screen time | hours the display was on (this Mac), as macOS Screen Time counts them | `pmset -g log` on every collect (~7 days of history); `pt screen-backfill` reads ~30 days from `knowledgeC.db` |
 
 Every event is one row of the v1 schema (`src/pt/schema.py`) with a
 deterministic `event_id`, so every collector is idempotent. **No prompt or
@@ -81,6 +82,22 @@ uv run pt weekly        # rolling 7-day narrative → data/narratives/rolling-<d
 uv run pt weekly --week 2026-09-08   # a calendar-week review → /api/weekly
 ```
 
+### Screen time
+
+`pt collect` parses `pmset -g log` every run, which needs no permissions but
+only reaches back about a week. To seed the history from Apple's own Screen
+Time store, grant **Full Disk Access** to your terminal (System Settings →
+Privacy & Security → Full Disk Access), then:
+
+```bash
+uv run pt screen-backfill --days 30   # display spans from ~/Library/.../knowledgeC.db
+uv run pt rollup
+```
+
+Events carry a start and a duration only — never an app name, window title or
+URL. Spans crossing local midnight are split so each belongs to one local day;
+dark wakes and any span over 16 hours (a missed "off") are dropped.
+
 ## Configuration
 
 | Variable | Default | Purpose |
@@ -89,6 +106,8 @@ uv run pt weekly --week 2026-09-08   # a calendar-week review → /api/weekly
 | `PT_STATE_DIR` | `~/.pt` | collector offsets |
 | `PT_REPO_ROOTS` | `~/git/nmp-ai-portfolio:~/git/nmp-projects:~/git` | path → project mapping, in priority order |
 | `PT_TZ` | `Australia/Sydney` | day bucketing |
+| `PT_PMSET_LOG` | – | read a recorded `pmset -g log` instead of shelling out |
+| `PT_KNOWLEDGE_DB` | `~/Library/Application Support/Knowledge/knowledgeC.db` | Screen Time store for `pt screen-backfill` |
 | `PT_GITHUB_OWNER` | `nmp-dsci` | repos to hook and backfill |
 | `PT_S3_BUCKET` | – | enables `pt sync` and S3 writes from `/ingest/*` |
 | `PT_INGEST_SECRET` | – | GitHub HMAC secret / EventBridge bearer |

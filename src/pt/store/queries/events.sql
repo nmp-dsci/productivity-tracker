@@ -13,6 +13,7 @@ SELECT
   coalesce(tokens.cache_write, 0) AS tok_cw,
   coalesce(tokens.thinking, 0)    AS tok_think,
   coalesce(cost_usd, 0)           AS cost_usd,
+  coalesce(seconds, 0)            AS seconds,
   tools, "class" AS cls, meta
 FROM read_json($glob, format = 'newline_delimited', union_by_name = true,
   columns = {
@@ -20,5 +21,5 @@ FROM read_json($glob, format = 'newline_delimited', union_by_name = true,
     ts: 'VARCHAR', project: 'VARCHAR', repo: 'VARCHAR', branch: 'VARCHAR',
     session_id: 'VARCHAR', model: 'VARCHAR',
     tokens: 'STRUCT(input BIGINT, output BIGINT, cache_read BIGINT, cache_write BIGINT, thinking BIGINT)',
-    cost_usd: 'DOUBLE', tools: 'VARCHAR[]', "class": 'VARCHAR', meta: 'JSON'
+    cost_usd: 'DOUBLE', seconds: 'DOUBLE', tools: 'VARCHAR[]', "class": 'VARCHAR', meta: 'JSON'
   });

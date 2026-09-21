@@ -64,6 +64,7 @@ def settings(tmp_path: Path, repo_root: Path) -> Settings:
         claude_dir=FIXTURES / "claude",
         codex_dir=FIXTURES / "codex",
         nomistakes_dir=FIXTURES / "nomistakes",
+        pmset_log=FIXTURES / "screen" / "pmset.log",
         # The static fixtures use /Users/dev/git/portfolio as their root; it need
         # not exist for path → project mapping to work.
         repo_roots=(repo_root, Path("/Users/dev/git/portfolio")),

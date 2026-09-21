@@ -7,6 +7,7 @@ pt sync push|pull                        mirror data/ to/from S3 (PT_S3_BUCKET)
 pt github install-hooks|backfill         GitHub webhooks and history
 pt aws collect                           Cost Explorer + App Runner
 pt tag                                   tier-2 classifier over unknown sessions
+pt screen-backfill                       screen time history from knowledgeC.db
 pt weekly                                draft the weekly narrative
 """
 
@@ -133,6 +134,25 @@ def aws_collect(days: int = typer.Option(30, help="Cost Explorer window.")) -> N
     n = LocalStore(cfg.events_dir).append(aws_collect_(cfg, state, days=days))
     state.save()
     typer.echo(f"aws: {n} new events")
+
+
+@app.command("screen-backfill")
+def screen_backfill(
+    days: int = typer.Option(30, help="How far back to read Apple's Screen Time store."),
+) -> None:
+    """One-off: display spans from knowledgeC.db (needs Full Disk Access)."""
+    from pt.collectors.screen import backfill
+    from pt.state import State
+    from pt.store.local import LocalStore
+
+    cfg = settings()
+    state = State(cfg.state_dir / "state.json")
+    try:
+        n = LocalStore(cfg.events_dir).append(backfill(cfg, state, days=days))
+    except PermissionError as exc:
+        typer.secho(str(exc), fg="red")
+        raise typer.Exit(1) from exc
+    typer.echo(f"screen backfill: {n} new events")
 
 
 @app.command()

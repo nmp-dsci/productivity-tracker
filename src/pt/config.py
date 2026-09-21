@@ -34,6 +34,20 @@ class Settings:
     nomistakes_dir: Path = field(
         default_factory=lambda: _env_path("PT_NOMISTAKES_DIR", HOME / ".no-mistakes")
     )
+    # A recorded `pmset -g log` to read instead of shelling out (tests, replay).
+    pmset_log: Path | None = field(
+        default_factory=lambda: (
+            Path(os.environ["PT_PMSET_LOG"]).expanduser()
+            if os.environ.get("PT_PMSET_LOG")
+            else None
+        )
+    )
+    # Apple's Screen Time store; reading it needs Full Disk Access.
+    knowledge_db: Path = field(
+        default_factory=lambda: _env_path(
+            "PT_KNOWLEDGE_DB", HOME / "Library/Application Support/Knowledge/knowledgeC.db"
+        )
+    )
     # Repo roots, in priority order. The first path component after a root is
     # the project name; older roots are kept so sessions recorded before a
     # move still attribute correctly (a `cwd` never changes retroactively).

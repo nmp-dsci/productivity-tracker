@@ -13,7 +13,7 @@ Collector = Callable[[Settings, State], Iterator[Event]]
 
 
 def registry() -> dict[str, Collector]:
-    from pt.collectors import claude_code, codex, evals, git_local, lavish, nomistakes
+    from pt.collectors import claude_code, codex, evals, git_local, lavish, nomistakes, screen
 
     return {
         "claude_code": claude_code.collect,
@@ -22,4 +22,5 @@ def registry() -> dict[str, Collector]:
         "lavish": lavish.collect,
         "evals": evals.collect,
         "nomistakes": nomistakes.collect,
+        "screen": screen.collect,
     }
