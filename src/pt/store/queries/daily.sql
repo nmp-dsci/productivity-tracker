@@ -28,6 +28,7 @@ SELECT
   sum(tok_cw)                       AS tok_cw,
   sum(tok_think)                    AS tok_think,
   sum(cost_usd)                     AS cost_usd,
+  sum(seconds)                      AS seconds,
   sum(coalesce(json_extract(meta, '$.insertions')::BIGINT, 0)) AS insertions,
   sum(coalesce(json_extract(meta, '$.deletions')::BIGINT, 0))  AS deletions,
   sum(CASE WHEN json_extract_string(meta, '$.subagent') = 'true' THEN 1 ELSE 0 END) AS subagent_msgs

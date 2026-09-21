@@ -127,3 +127,5 @@ td.num, th.num { text-align: right; font-family: var(--mono); font-size: 12px; }
 
 footer { background: var(--black); color: #cfcfcf; padding: 32px 24px; font-size: 12px; }
 footer .in { max-width: 1400px; margin: 0 auto; display: flex; gap: 24px; flex-wrap: wrap; justify-content: space-between; }
+
+.hm-legend i.partial { background: transparent; border: 1px dashed var(--muted); }

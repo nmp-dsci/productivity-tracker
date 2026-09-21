@@ -116,8 +116,14 @@ ecr_push, daily_cost. `lavish`: page_created, page_updated. `evals`: run.
 | D-02 | Public demo | aggregates only; demo API never returns session ids, paths, branch names (project/repo names stay, since all nmp-dsci repos are public and per-project breakdown is the point of the demo) |
 | D-03 | GitHub capture | per-repo webhooks via `pt github install-hooks` + REST backfill |
 | D-04 | Stack | Python 3.12 + FastAPI + DuckDB backend; Vite + React + TS frontend |
-| D-05 | v1 sources | S-01 … S-08 (eval runs and no-mistakes promoted into P1); S-09, S-10 deferred |
+| D-05 | v1 sources | S-01 … S-08 (eval runs and no-mistakes promoted into P1); S-09 screen time added 2026-09-21, S-10 deferred |
 | D-06 | Live hooks | deferred to P7 |
+| D-07 | Screen time capture (2026-09-21) | `pmset -g log` on the 5-minute tick (no permissions, ~7 days of history) **plus** a knowledgeC.db backfill (Full Disk Access granted 2026-09-21; 29 days seeded, 170.3h collected, `--days 3` on every tick). The two are never summed, and as of 2026-09-21 the metric reads **knowledgeC only**: pmset is collected as a cross-check but excluded, since it counts locked-but-lit time and reads ~40% higher |
+| D-08 | Trend periods (2026-09-21) | no partial periods: the week grain is rolling 7-day blocks ending on the last complete day, recomputed daily; today is drawn but never counted |
+| D-09 | Screen-time detail (2026-09-21) | one metric only — hours the display was on. No per-app hours, categories, websites, idle split, pickups or notification counts |
+| D-10 | Screen time in the demo (2026-09-21) | yes: a span is a start and a duration, an aggregate like every other metric |
+| D-11 | Screen-time placement (2026-09-21) | first tile and first strip; the derived output-tokens-per-hour ratio was built and then dropped — hours stand on their own |
+| D-12 | Daily settle (2026-09-21) | `pt refresh` re-reads every source from the top, re-walks GitHub/AWS and rebuilds the rollups once per **UTC day**; a 30-minute LaunchAgent calls it and it no-ops until the UTC date turns (a fixed local hour would drift with DST) |
 
 ## Risks and Open Questions
 

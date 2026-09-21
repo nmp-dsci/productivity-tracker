@@ -1,0 +1,16 @@
+Note: the format below mirrors `pmset -g log` on macOS 26; only the lines this
+parser cares about are kept, plus noise it must ignore.
+
+2026-09-14 08:15:00 +1000 Notification        	Display is turned on                                                       	          
+2026-09-14 09:15:00 +1000 Notification        	Display is turned off                                                      	          
+2026-09-14 10:00:00 +1000 Assertions          	PID 118(powerd) Created UserIsActive "com.apple.powermanagement"          	          
+2026-09-14 10:30:00 +1000 DarkWake            	Display is turned on                                                       	 due to maintenance
+2026-09-14 10:35:00 +1000 DarkWake            	Display is turned off                                                      	 due to maintenance
+2026-09-14 11:00:00 +1000 Notification        	Display is turned on                                                       	          
+2026-09-14 11:00:30 +1000 Notification        	Display is turned on                                                       	          
+2026-09-14 12:00:00 +1000 Notification        	Display is turned off                                                      	          
+2026-09-14 23:50:00 +1000 Notification        	Display is turned on                                                       	          
+2026-09-15 00:20:00 +1000 Notification        	Display is turned off                                                      	          
+2026-09-15 09:00:00 +1000 Notification        	Display is turned on                                                       	          
+2026-09-16 09:00:00 +1000 Notification        	Display is turned off                                                      	          
+2026-09-16 10:00:00 +1000 Notification        	Display is turned on                                                       	          

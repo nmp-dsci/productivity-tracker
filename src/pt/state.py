@@ -24,6 +24,18 @@ class State:
     def set(self, key: str, value: Any) -> None:
         self._d[key] = value
 
+    def clear_cursors(self) -> None:
+        """Drop every incremental cursor (tail offsets, per-repo git
+        watermarks, mtime-seen maps, ...) so the next collect re-reads each
+        source from the top. Deliberately a deny-list of the handful of keys
+        that are not cursors, rather than an allow-list of cursors to clear,
+        so a future collector's cursor is swept up automatically instead of
+        silently surviving a "full" refresh."""
+        keep = {"last_full_refresh"}
+        for key in list(self._d):
+            if key not in keep:
+                del self._d[key]
+
     def offsets(self, collector: str) -> dict[str, int]:
         return dict(self._d.setdefault("offsets", {}).setdefault(collector, {}))
 

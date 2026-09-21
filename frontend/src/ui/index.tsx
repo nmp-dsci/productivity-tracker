@@ -82,13 +82,14 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', '
 export type HoverInfo = { x: number; y: number; body: ReactNode } | null;
 
 /** One strip per metric: rolling days (thin cells) or weeks (wide cells). */
-export const Strip = ({ cells, grain, label, onHover, onClick }: {
-  cells: { d: string; v: number }[]; grain: 'day' | 'week'; label: string;
-  onHover: (h: HoverInfo) => void; onClick?: (d: string) => void;
+export const Strip = ({ cells, grain, label, onHover, onClick, format = fmt }: {
+  cells: { d: string; end?: string; v: number; done: boolean }[]; grain: 'day' | 'week'; label: string;
+  onHover: (h: HoverInfo) => void; onClick?: (d: string) => void; format?: (v: number) => string;
 }) => {
   const C = grain === 'day' ? 5 : 36, G = grain === 'day' ? 1 : 4, Hc = 26, top = 13;
   const W = cells.length * (C + G), H = top + Hc;
-  const max = Math.max(1, ...cells.map((c) => c.v));
+  // The period in progress is excluded from the scale as well as the totals.
+  const max = Math.max(1, ...cells.filter((c) => c.done).map((c) => c.v));
   let lastM = -1;
   return (
     <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-label={label}>
@@ -98,14 +99,24 @@ export const Strip = ({ cells, grain, label, onHover, onClick }: {
         const showMonth = m !== lastM;
         lastM = m;
         const l = level(c.v, max);
+        const tip = (
+          <>
+            <b>{grain === 'week' ? `7 days to ${c.end ?? c.d}` : c.d}</b>
+            <br />{label}: {format(c.v)}
+            {!c.done && <><br /><i>{grain === 'week' ? 'week' : 'day'} still in progress — not counted</i></>}
+          </>
+        );
         return (
           <g key={c.d}>
             {showMonth && <text x={i * (C + G)} y="10">{MONTHS[m]}</text>}
             <rect
-              x={i * (C + G)} y={top} width={C} height={Hc} fill={l ? RAMP[l - 1] : 'transparent'}
+              x={i * (C + G)} y={top} width={C} height={Hc}
+              fill={c.done ? (l ? RAMP[l - 1] : 'transparent') : 'transparent'}
+              fillOpacity={c.done ? 1 : 0}
+              stroke={c.done ? 'none' : 'var(--muted)'} strokeWidth={c.done ? 0 : 1} strokeDasharray="2 2"
               style={{ cursor: onClick ? 'pointer' : 'default' }}
-              onMouseEnter={(e) => onHover({ x: e.clientX, y: e.clientY, body: (<><b>{grain === 'week' ? 'week of ' : ''}{c.d}</b><br />{label}: {fmt(c.v)}</>) })}
-              onMouseMove={(e) => onHover({ x: e.clientX, y: e.clientY, body: (<><b>{grain === 'week' ? 'week of ' : ''}{c.d}</b><br />{label}: {fmt(c.v)}</>) })}
+              onMouseEnter={(e) => onHover({ x: e.clientX, y: e.clientY, body: tip })}
+              onMouseMove={(e) => onHover({ x: e.clientX, y: e.clientY, body: tip })}
               onMouseLeave={() => onHover(null)}
               onClick={() => onClick?.(c.d)}
             />

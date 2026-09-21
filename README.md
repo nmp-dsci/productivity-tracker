@@ -21,6 +21,7 @@ agents, GitHub, AWS and the review pages generated along the way.
 | Lavish pages | review pages created/updated per project | `**/.lavish/sNN_*.html` |
 | Eval runs | run per project with headline metrics | `evals/runs/*.json`, `runs/*/run.json` |
 | no-mistakes | gate pushes and pipeline pass/fail | `~/.no-mistakes/logs/daemon.log` |
+| Screen time | hours the display was on (this Mac), as macOS Screen Time counts them | `pmset -g log` on every collect (~7 days of history); `pt screen-backfill` reads Apple's own store (~30 days of retention) |
 
 Every event is one row of the v1 schema (`src/pt/schema.py`) with a
 deterministic `event_id`, so every collector is idempotent. **No prompt or
@@ -67,9 +68,13 @@ uv run pt serve --port 8080              # http://127.0.0.1:8080
 
 Frontend dev loop: `cd frontend && npm run dev` (proxies `/api` to :8080).
 
-Keep it fresh: `scripts/install_launchd.sh` installs a LaunchAgent that runs
+Keep it fresh: `scripts/install_launchd.sh` installs two LaunchAgents —
 `pt collect && pt rollup` (and `pt sync push` when `PT_S3_BUCKET` is set)
-every 5 minutes.
+every 5 minutes, plus `pt refresh` checked every 30 minutes. `pt refresh`
+re-reads every source from the top, re-walks GitHub and AWS, and rebuilds the
+rollups once per UTC day (a 30-minute check beats a fixed local hour, which
+would drift with DST); it no-ops for the rest of that day, and a missing AWS
+credential or GitHub token only warns, never fails the run.
 
 Enrichment (optional, `uv sync --group enrich`). Bills the **Claude subscription**
 when `CLAUDE_CODE_OAUTH_TOKEN` is set (via the Claude Agent SDK), otherwise
@@ -81,6 +86,37 @@ uv run pt weekly        # rolling 7-day narrative → data/narratives/rolling-<d
 uv run pt weekly --week 2026-09-08   # a calendar-week review → /api/weekly
 ```
 
+### Screen time
+
+`pt collect` parses `pmset -g log` every run, which needs no permissions but
+only reaches back about a week. To seed the history from Apple's own Screen
+Time store, grant **Full Disk Access** to your terminal (System Settings →
+Privacy & Security → Full Disk Access), then:
+
+```bash
+uv run pt screen-backfill            # display spans from ~/Library/.../knowledgeC.db
+uv run pt rollup
+```
+
+Events carry a start and a duration only — never an app name, window title or
+URL. Spans crossing local midnight are split so each belongs to one local day;
+dark wakes and any span over 16 hours (a missed "off") are dropped.
+
+The two readers measure the same hours, so they are **never summed**: they are
+stored under different kinds (`display_span`, `display_span_apple`) and
+`screen_hours` reads Apple's `display_span_apple` events only — pmset spans
+are still collected and stored as a permission-less record and cross-check,
+but never counted, with no fallback to them on any day. That's deliberate: if
+Full Disk Access is ever lost, the metric goes quiet rather than silently
+degrading to pmset's ~40%-higher reading (pmset counts the display being lit
+while the Mac is locked). If the screen-time strip flatlines, check Full Disk
+Access before anything else. Apple keeps roughly **30 days** (measured
+2026-09-21: 29 days of `/display/isBacklit`), so the event store is the only
+record of anything older — which is why the backfill runs on every tick
+rather than once. Once Full Disk Access is granted, the launchd job re-runs
+`pt screen-backfill --days 3` on every tick so recent days keep Apple's
+reading.
+
 ## Configuration
 
 | Variable | Default | Purpose |
@@ -89,6 +125,8 @@ uv run pt weekly --week 2026-09-08   # a calendar-week review → /api/weekly
 | `PT_STATE_DIR` | `~/.pt` | collector offsets |
 | `PT_REPO_ROOTS` | `~/git/nmp-ai-portfolio:~/git/nmp-projects:~/git` | path → project mapping, in priority order |
 | `PT_TZ` | `Australia/Sydney` | day bucketing |
+| `PT_PMSET_LOG` | – | read a recorded `pmset -g log` instead of shelling out |
+| `PT_KNOWLEDGE_DB` | `~/Library/Application Support/Knowledge/knowledgeC.db` | Screen Time store for `pt screen-backfill` |
 | `PT_GITHUB_OWNER` | `nmp-dsci` | repos to hook and backfill |
 | `PT_S3_BUCKET` | – | enables `pt sync` and S3 writes from `/ingest/*` |
 | `PT_INGEST_SECRET` | – | GitHub HMAC secret / EventBridge bearer |

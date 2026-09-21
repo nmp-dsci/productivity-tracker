@@ -16,7 +16,7 @@ from pydantic import BaseModel, Field
 SCHEMA_VERSION = 1
 
 Source = Literal[
-    "claude_code", "codex", "git_local", "github", "aws", "lavish", "evals", "nomistakes"
+    "claude_code", "codex", "git_local", "github", "aws", "lavish", "evals", "nomistakes", "screen"
 ]
 Class = Literal["building", "evals", "infra", "writing", "review", "unknown"]
 
@@ -42,6 +42,8 @@ class Event(BaseModel):
     model: str | None = None
     tokens: Tokens | None = None
     cost_usd: float | None = None
+    # Duration, for sources that measure time rather than count things.
+    seconds: float | None = None
     tools: list[str] = Field(default_factory=list)
     cls: Class = Field(default="unknown", alias="class")
     # Small, source-specific extras (counts, ids, statuses). Never text bodies.

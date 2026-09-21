@@ -78,6 +78,29 @@ def test_nomistakes(settings: Settings, state: State) -> None:
     assert [e.meta["status"] for e in events[1:]] == ["passed", "failed"]
 
 
+def test_clear_cursors_makes_every_collector_re_read_from_the_top(
+    settings: Settings, state: State
+) -> None:
+    """A deep refresh must not leave any collector's own incremental cursor
+    behind — git_local's per-repo watermark and lavish's mtime-seen map are
+    just as much cursors as the shared tail offsets."""
+    store = LocalStore(settings.events_dir)
+    first = sum(store.append(list(c(settings, state))) for c in registry().values())
+    assert first > 0
+    state.set("last_full_refresh", "2026-09-20")
+    # incremental (no clear): every cursor-driven collector sees nothing new,
+    # and anything re-yielded regardless of cursor dedupes away at the store.
+    again = sum(store.append(list(c(settings, state))) for c in registry().values())
+    assert again == 0
+
+    state.clear_cursors()
+    assert state.get("last_full_refresh") == "2026-09-20"  # non-cursor state survives
+    store2 = LocalStore(settings.events_dir)
+    replayed = sum(len(list(c(settings, state))) for c in registry().values())
+    assert replayed == first  # every source was re-read from the top
+    assert store2.count() == first  # and dedupes back to the same event set
+
+
 def test_end_to_end_is_idempotent(settings: Settings, state: State) -> None:
     store = LocalStore(settings.events_dir)
     first = sum(store.append(list(c(settings, state))) for c in registry().values())
