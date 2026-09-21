@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="productivity·tracker">
+  <style>
+    .plate { fill: #6e2a2a; }
+    .mark  { fill: #efefef; }
+    .dot   { fill: #c9a24a; }
+    @media (prefers-color-scheme: dark) {
+      .plate { fill: #efefef; }
+      .mark  { fill: #6e2a2a; }
+    }
+  </style>
+  <rect class="plate" width="64" height="64" rx="14" />
+  <path class="mark" fill-rule="evenodd"
+        d="M17 11h17a11.5 11.5 0 0 1 0 23h-8v19h-9zM26 19h8a3.5 3.5 0 0 1 0 7h-8z" />
+  <circle class="dot" cx="47" cy="49" r="4.5" />
+</svg>
