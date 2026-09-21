@@ -156,9 +156,13 @@ def knowledge_spans(db: Path, since: datetime) -> list[tuple[datetime, datetime]
     return out
 
 
-def backfill(settings: Settings, state: State, days: int = 30) -> Iterator[Event]:
-    """One-off history from Apple's store. Yields nothing (and says why) when
-    the process has no Full Disk Access."""
+def backfill(settings: Settings, state: State, days: int = 45) -> Iterator[Event]:
+    """History from Apple's store — the default reading for any day it covers.
+
+    Apple keeps about 30 days (measured 2026-09-21: `/display/isBacklit` went
+    back 29 days), so asking for more is harmless and costs nothing; our own
+    event store is the only record of anything older. Raises PermissionError
+    when the process has no Full Disk Access."""
     db = settings.knowledge_db
     since = datetime.now(UTC) - timedelta(days=days)
     try:

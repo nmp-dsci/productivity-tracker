@@ -138,7 +138,7 @@ def aws_collect(days: int = typer.Option(30, help="Cost Explorer window.")) -> N
 
 @app.command("screen-backfill")
 def screen_backfill(
-    days: int = typer.Option(30, help="How far back to read Apple's Screen Time store."),
+    days: int = typer.Option(45, help="How far back to read (Apple keeps ~30 days)."),
 ) -> None:
     """One-off: display spans from knowledgeC.db (needs Full Disk Access)."""
     from pt.collectors.screen import backfill

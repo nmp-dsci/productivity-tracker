@@ -21,7 +21,7 @@ agents, GitHub, AWS and the review pages generated along the way.
 | Lavish pages | review pages created/updated per project | `**/.lavish/sNN_*.html` |
 | Eval runs | run per project with headline metrics | `evals/runs/*.json`, `runs/*/run.json` |
 | no-mistakes | gate pushes and pipeline pass/fail | `~/.no-mistakes/logs/daemon.log` |
-| Screen time | hours the display was on (this Mac), as macOS Screen Time counts them | `pmset -g log` on every collect (~7 days of history); `pt screen-backfill` reads ~30 days from `knowledgeC.db` |
+| Screen time | hours the display was on (this Mac), as macOS Screen Time counts them | `pmset -g log` on every collect (~7 days of history); `pt screen-backfill` reads Apple's own store (~30 days of retention) |
 
 Every event is one row of the v1 schema (`src/pt/schema.py`) with a
 deterministic `event_id`, so every collector is idempotent. **No prompt or
@@ -90,7 +90,7 @@ Time store, grant **Full Disk Access** to your terminal (System Settings →
 Privacy & Security → Full Disk Access), then:
 
 ```bash
-uv run pt screen-backfill --days 30   # display spans from ~/Library/.../knowledgeC.db
+uv run pt screen-backfill            # display spans from ~/Library/.../knowledgeC.db
 uv run pt rollup
 ```
 
@@ -100,8 +100,11 @@ dark wakes and any span over 16 hours (a missed "off") are dropped.
 
 The two readers measure the same hours, so they are **never summed**: they are
 stored under different kinds (`display_span`, `display_span_apple`) and
-`screen_hours` takes Apple's number for any day it covers, falling back to
-pmset for days the backfill never reached. Apple's is the number the Screen
+`screen_hours` defaults to Apple's number for any day it covers, falling back
+to pmset only for days the backfill never reached. Apple keeps roughly **30
+days** (measured 2026-09-21: 29 days of `/display/isBacklit`), so the event
+store is the only record of anything older — which is why the backfill runs on
+every tick rather than once. Apple's is the number the Screen
 Time panel shows; pmset reads roughly 40% higher because it counts the display
 being lit while the Mac is locked. Once Full Disk Access is granted, the
 launchd job re-runs `pt screen-backfill --days 3` on every tick so recent days
