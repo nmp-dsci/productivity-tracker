@@ -133,7 +133,7 @@ def trends(con: duckdb.DuckDBPyConnection, grain: str, window: int, today: date)
     # Weeks are rolling 7-day blocks ending on the last complete day, so growth
     # always compares 7 whole days with the 7 whole days before them.
     last = today - timedelta(days=1)
-    buckets = max(window if grain == "week" else 0, 9)
+    buckets = max(window if grain == "week" else 0, 26)
     start = min(today - timedelta(days=window - 1), last - timedelta(days=buckets * 7 - 1))
     rows = []
     for key, label, note in METRICS:

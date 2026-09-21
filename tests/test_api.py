@@ -119,6 +119,8 @@ def test_in_progress_periods_are_flagged_and_excluded(settings: Settings, state:
         assert [c["d"] for c in cells if not c["done"]] == [date.today().isoformat()]
         assert row["periods"] == len(cells) - 1
         assert row["total"] == pytest.approx(sum(c["v"] for c in cells if c["done"]))
+        # The sparkline caption promises 26 rolling blocks regardless of grain.
+        assert len(row["spark"]) == 26
 
 
 def test_week_grain_is_rolling_seven_whole_days(settings: Settings, state: State) -> None:
