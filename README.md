@@ -68,9 +68,13 @@ uv run pt serve --port 8080              # http://127.0.0.1:8080
 
 Frontend dev loop: `cd frontend && npm run dev` (proxies `/api` to :8080).
 
-Keep it fresh: `scripts/install_launchd.sh` installs a LaunchAgent that runs
+Keep it fresh: `scripts/install_launchd.sh` installs two LaunchAgents —
 `pt collect && pt rollup` (and `pt sync push` when `PT_S3_BUCKET` is set)
-every 5 minutes.
+every 5 minutes, plus `pt refresh` checked every 30 minutes. `pt refresh`
+re-reads every source from the top, re-walks GitHub and AWS, and rebuilds the
+rollups once per UTC day (a 30-minute check beats a fixed local hour, which
+would drift with DST); it no-ops for the rest of that day, and a missing AWS
+credential or GitHub token only warns, never fails the run.
 
 Enrichment (optional, `uv sync --group enrich`). Bills the **Claude subscription**
 when `CLAUDE_CODE_OAUTH_TOKEN` is set (via the Claude Agent SDK), otherwise
