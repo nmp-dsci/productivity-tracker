@@ -8,6 +8,7 @@ pt github install-hooks|backfill         GitHub webhooks and history
 pt aws collect                           Cost Explorer + App Runner
 pt tag                                   tier-2 classifier over unknown sessions
 pt screen-backfill                       screen time history from knowledgeC.db
+pt refresh                               full re-read + rebuild, once per UTC day
 pt weekly                                draft the weekly narrative
 """
 
@@ -153,6 +154,76 @@ def screen_backfill(
         typer.secho(str(exc), fg="red")
         raise typer.Exit(1) from exc
     typer.echo(f"screen backfill: {n} new events")
+
+
+@app.command()
+def refresh(
+    force: bool = typer.Option(False, help="Refresh even if today's UTC day is already done."),
+    deep: bool = typer.Option(
+        True, help="Clear tail offsets so every source file is re-read from the top."
+    ),
+    remote: bool = typer.Option(True, help="Also re-walk GitHub and AWS."),
+    github_days: int = typer.Option(30, help="GitHub backfill window."),
+) -> None:
+    """Full rebuild, once per UTC day.
+
+    The 5-minute tick is incremental and forward-only; this re-reads every
+    source from the top, re-walks the remote APIs and rebuilds the rollups, so
+    edited files, late webhooks and Apple's shifting Screen Time window all
+    settle. Re-collecting is safe: event ids are deterministic, so everything
+    already stored dedupes away. It no-ops when the current UTC day has
+    already been refreshed, which makes it safe to call from a timer that
+    fires far more often than daily."""
+    from collections.abc import Callable, Iterator
+    from datetime import UTC, datetime
+
+    from pt.collectors import registry
+    from pt.schema import Event
+    from pt.state import State
+    from pt.store.local import LocalStore
+    from pt.store.rollup import build
+
+    cfg = settings()
+    today = datetime.now(UTC).date().isoformat()
+    state = State(cfg.state_dir / "state.json")
+    if not force and state.get("last_full_refresh") == today:
+        typer.echo(f"refresh: already done for {today} (UTC) — nothing to do")
+        return
+
+    t0 = time.time()
+    if deep:
+        state.set("offsets", {})
+    store = LocalStore(cfg.events_dir)
+    total = 0
+    for name, collect_ in registry().items():
+        n = store.append(collect_(cfg, state))
+        total += n
+        typer.echo(f"{name:12s} new {n:7d}")
+    from pt.collectors.screen import backfill as screen_backfill
+
+    try:
+        total += store.append(screen_backfill(cfg, state))
+    except PermissionError as exc:
+        typer.secho(f"screen backfill skipped: {exc}", fg="yellow")
+    if remote:
+        from pt.collectors.aws import collect as aws_collect_
+        from pt.collectors.github import backfill as github_backfill
+
+        remotes: list[tuple[str, Callable[[], Iterator[Event]]]] = [
+            ("github", lambda: github_backfill(cfg, state, days=github_days)),
+            ("aws", lambda: aws_collect_(cfg, state, days=github_days)),
+        ]
+        for label, events in remotes:
+            try:
+                n = store.append(events())
+                total += n
+                typer.echo(f"{label:12s} new {n:7d}")
+            except Exception as exc:  # noqa: BLE001 — a missing token must not fail the day
+                typer.secho(f"{label} skipped: {exc}", fg="yellow")
+    build(cfg, cfg.rollups_dir)
+    state.set("last_full_refresh", today)
+    state.save()
+    typer.echo(f"refresh {today} (UTC): {total} new events in {time.time() - t0:.0f}s")
 
 
 @app.command()

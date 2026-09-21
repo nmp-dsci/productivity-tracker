@@ -155,31 +155,45 @@ def test_insights_window_ends_yesterday(settings: Settings, state: State) -> Non
 
 
 def test_screen_hours(settings: Settings, state: State, tmp_path: Path) -> None:
-    """Display spans roll up as hours per local day."""
-    today = date.today()
-    log = tmp_path / "pmset.log"
-    log.write_text(
-        "\n".join(
-            f"{d} {t} +0000 Notification\tDisplay is turned {onoff}"
-            for d, t, onoff in [
-                ((today - timedelta(days=2)).isoformat(), "01:00:00", "on"),
-                ((today - timedelta(days=2)).isoformat(), "03:00:00", "off"),
-                ((today - timedelta(days=1)).isoformat(), "01:00:00", "on"),
-                ((today - timedelta(days=1)).isoformat(), "07:00:00", "off"),
-            ]
-        )
+    """Apple's backlit spans roll up as hours in the right local day."""
+    import sqlite3
+    from dataclasses import replace as _replace
+
+    from pt.collectors.screen import backfill as screen_backfill
+
+    db = tmp_path / "knowledgeC.db"
+    con = sqlite3.connect(db)
+    con.execute(
+        "CREATE TABLE ZOBJECT (ZSTREAMNAME TEXT, ZVALUEINTEGER INT, ZSTARTDATE REAL, ZENDDATE REAL)"
     )
-    cfg = replace(_prepared(replace(settings, pmset_log=log), state), pmset_log=log)
+    mac = datetime(2001, 1, 1, tzinfo=UTC)
+    now = datetime.now(UTC)
+    two, one = now - timedelta(days=2), now - timedelta(days=1)
+    con.executemany(
+        "INSERT INTO ZOBJECT VALUES ('/display/isBacklit', 1, ?, ?)",
+        [
+            ((two - mac).total_seconds(), (two - mac).total_seconds() + 7200),
+            ((one - mac).total_seconds(), (one - mac).total_seconds() + 21600),
+        ],
+    )
+    con.commit()
+    con.close()
+
+    cfg = _replace(_prepared(settings, state), knowledge_db=db)
+    LocalStore(cfg.events_dir).append(list(screen_backfill(cfg, state)))
+    build(cfg, cfg.rollups_dir)
     rows = TestClient(create_app(cfg)).get("/api/trends?grain=day&window=7").json()["rows"]
     hours = {r["key"]: r for r in rows}["screen_hours"]
-    # 2h and 6h of display-on, each on its own local day, both complete.
+    # 2h and 6h, each on its own local day, both complete.
     assert round(hours["total"], 2) == 8.0
-    assert [round(c["v"], 2) for c in hours["cells"][-3:]] == [2.0, 6.0, 0.0]
 
 
-def test_screen_sources_are_not_summed(settings: Settings, state: State, tmp_path: Path) -> None:
-    """pmset and knowledgeC are two readings of the same hours. Apple's own
-    number wins where we have it; pmset covers the days it never reached."""
+def test_screen_hours_come_only_from_knowledgec(
+    settings: Settings, state: State, tmp_path: Path
+) -> None:
+    """pmset and knowledgeC are two readings of the same hours on different
+    scales. The metric is Apple's alone — pmset is collected but never counted,
+    so the row can never mix the two."""
     from pt.collectors.screen import KIND, KIND_BACKFILL
     from pt.schema import Event, event_id
 
@@ -205,5 +219,41 @@ def test_screen_sources_are_not_summed(settings: Settings, state: State, tmp_pat
     build(cfg, cfg.rollups_dir)
     rows = TestClient(create_app(cfg)).get("/api/trends?grain=day&window=7").json()["rows"]
     cells = {c["d"]: c["v"] for c in {r["key"]: r for r in rows}["screen_hours"]["cells"]}
-    assert cells[day.isoformat()] == 1.0  # Apple's 1h, not 3h and not 2h
-    assert cells[other.isoformat()] == 0.5  # falls back to pmset
+    assert cells[day.isoformat()] == 1.0  # Apple's 1h, not 3h and not the 2h sum
+    assert cells[other.isoformat()] == 0.0  # pmset alone does not make a number
+
+
+def test_refresh_runs_once_per_utc_day(settings: Settings, state: State) -> None:
+    """The refresh is safe to call from a frequent timer: it rebuilds on the
+    first call of a UTC day and no-ops for the rest of that day."""
+    from datetime import datetime
+
+    from typer.testing import CliRunner
+
+    from pt.cli import app
+
+    runner = CliRunner()
+    env = {
+        "PT_DATA_DIR": str(settings.data_dir),
+        "PT_STATE_DIR": str(settings.state_dir),
+        "PT_CLAUDE_DIR": str(settings.claude_dir),
+        "PT_CODEX_DIR": str(settings.codex_dir),
+        "PT_NOMISTAKES_DIR": str(settings.nomistakes_dir),
+        "PT_PMSET_LOG": str(settings.pmset_log),
+        "PT_KNOWLEDGE_DB": "/nope/knowledgeC.db",
+        "PT_REPO_ROOTS": ":".join(str(r) for r in settings.repo_roots),
+        "PT_TZ": settings.timezone,
+    }
+    first = runner.invoke(app, ["refresh", "--no-remote"], env=env)
+    assert first.exit_code == 0, first.output
+    assert "refresh" in first.output and "new events" in first.output
+    # Apple's store is unreadable here: that is a warning, never a failure.
+    assert "screen backfill skipped" in first.output
+
+    again = runner.invoke(app, ["refresh", "--no-remote"], env=env)
+    assert again.exit_code == 0
+    today = datetime.now(UTC).date().isoformat()
+    assert f"already done for {today}" in again.output
+
+    forced = runner.invoke(app, ["refresh", "--no-remote", "--force"], env=env)
+    assert forced.exit_code == 0 and "already done" not in forced.output

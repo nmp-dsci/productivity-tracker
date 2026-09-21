@@ -30,17 +30,13 @@ METRICS: list[tuple[str, str, str]] = [
 ]
 
 _METRIC_SQL: dict[str, str] = {
-    # Two readings of the same hours, so never summed. Apple's own store wins
-    # where we have it — it is what the Screen Time panel shows, and it excludes
-    # locked-but-lit time that pmset counts (pmset reads ~40% higher). pmset is
-    # the fallback for days the backfill never covered.
-    "screen_hours": """SELECT day, (CASE WHEN apple > 0 THEN apple ELSE live END) / 3600 v FROM (
-                         SELECT day,
-                           sum(CASE WHEN kind='display_span' THEN seconds ELSE 0 END) live,
-                           sum(CASE WHEN kind='display_span_apple' THEN seconds ELSE 0 END) apple
-                         FROM daily WHERE source='screen' GROUP BY 1)""",
-    # Interactive = at least one human prompt in history.jsonl. Automated =
-    # subagents and the `claude -p` runs an eval loop fans out (no prompt).
+    # Screen time is Apple's own number: the `/display/isBacklit` spans behind
+    # the Screen Time panel, read by `pt screen-backfill`. pmset spans are still
+    # collected (kind 'display_span') but deliberately excluded — they measure
+    # the display being lit, including while the Mac is locked, and read ~40%
+    # higher, so mixing the two would put two different scales in one row.
+    "screen_hours": """SELECT day, sum(seconds) / 3600 v FROM daily
+                       WHERE source='screen' AND kind='display_span_apple' GROUP BY 1""",
     "claude_sessions": "SELECT day, count(*) v FROM sessions WHERE source='claude_code' AND prompts > 0 GROUP BY 1",
     "automated_sessions": "SELECT day, count(*) v FROM sessions WHERE source='claude_code' AND prompts = 0 GROUP BY 1",
     "codex_sessions": "SELECT day, count(*) v FROM sessions WHERE source='codex' GROUP BY 1",
