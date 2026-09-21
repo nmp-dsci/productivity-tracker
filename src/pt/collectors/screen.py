@@ -14,8 +14,12 @@ Two readers, one event kind:
 Both emit spans carrying a start and a duration — no app names, no window
 titles, no URLs — split at local midnight so every event belongs to exactly
 one local day. The two overlap on the days they both cover, so they are stored
-under different kinds and `screen_hours` takes the larger of the two per day
-instead of adding them up.
+under different kinds, and `screen_hours` reads `display_span_apple` only:
+pmset's spans stay in the event store as a permission-less record and
+cross-check but are never counted, on any day, and there is no fallback to
+them. That's deliberate — if Full Disk Access is lost, the metric goes quiet
+rather than degrading to pmset's reading, which runs roughly 40% higher
+because it counts the display being lit while the Mac is locked.
 """
 
 from __future__ import annotations

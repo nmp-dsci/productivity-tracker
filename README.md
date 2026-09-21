@@ -100,15 +100,18 @@ dark wakes and any span over 16 hours (a missed "off") are dropped.
 
 The two readers measure the same hours, so they are **never summed**: they are
 stored under different kinds (`display_span`, `display_span_apple`) and
-`screen_hours` defaults to Apple's number for any day it covers, falling back
-to pmset only for days the backfill never reached. Apple keeps roughly **30
-days** (measured 2026-09-21: 29 days of `/display/isBacklit`), so the event
-store is the only record of anything older — which is why the backfill runs on
-every tick rather than once. Apple's is the number the Screen
-Time panel shows; pmset reads roughly 40% higher because it counts the display
-being lit while the Mac is locked. Once Full Disk Access is granted, the
-launchd job re-runs `pt screen-backfill --days 3` on every tick so recent days
-keep Apple's reading.
+`screen_hours` reads Apple's `display_span_apple` events only — pmset spans
+are still collected and stored as a permission-less record and cross-check,
+but never counted, with no fallback to them on any day. That's deliberate: if
+Full Disk Access is ever lost, the metric goes quiet rather than silently
+degrading to pmset's ~40%-higher reading (pmset counts the display being lit
+while the Mac is locked). If the screen-time strip flatlines, check Full Disk
+Access before anything else. Apple keeps roughly **30 days** (measured
+2026-09-21: 29 days of `/display/isBacklit`), so the event store is the only
+record of anything older — which is why the backfill runs on every tick
+rather than once. Once Full Disk Access is granted, the launchd job re-runs
+`pt screen-backfill --days 3` on every tick so recent days keep Apple's
+reading.
 
 ## Configuration
 
