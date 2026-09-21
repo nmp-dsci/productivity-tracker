@@ -192,7 +192,7 @@ def refresh(
 
     t0 = time.time()
     if deep:
-        state.set("offsets", {})
+        state.clear_cursors()
     store = LocalStore(cfg.events_dir)
     total = 0
     for name, collect_ in registry().items():
