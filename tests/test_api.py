@@ -11,7 +11,6 @@ import pytest
 from fastapi.testclient import TestClient
 
 from pt.api.app import create_app
-from pt.api.queries import RATIOS
 from pt.collectors import registry
 from pt.config import Settings
 from pt.state import State
@@ -34,8 +33,8 @@ def test_read_routes(settings: Settings, state: State) -> None:
     t = client.get("/api/trends?grain=day&window=30").json()
     assert [r["key"] for r in t["rows"]][:3] == [
         "screen_hours",
-        "tok_out_per_hour",
         "claude_sessions",
+        "automated_sessions",
     ]
     assert len(t["rows"][0]["cells"]) == 30
     w = client.get("/api/trends?grain=week&window=26").json()
@@ -43,7 +42,7 @@ def test_read_routes(settings: Settings, state: State) -> None:
     ins = client.get("/api/insights").json()
     assert [m["key"] for m in ins["metrics"]][:2] == [
         "screen_hours",
-        "tok_out_per_hour",
+        "claude_sessions",
     ] and "narrative" in ins
     ov = client.get("/api/overview?week=2026-09-10").json()
     assert ov["week_start"] == "2026-09-07" and ov["kpis"]["commits"] == 2
@@ -119,8 +118,7 @@ def test_in_progress_periods_are_flagged_and_excluded(settings: Settings, state:
         cells = row["cells"]
         assert [c["d"] for c in cells if not c["done"]] == [date.today().isoformat()]
         assert row["periods"] == len(cells) - 1
-        if row["key"] not in RATIOS:  # a ratio divides sums, it is not one
-            assert row["total"] == pytest.approx(sum(c["v"] for c in cells if c["done"]))
+        assert row["total"] == pytest.approx(sum(c["v"] for c in cells if c["done"]))
 
 
 def test_week_grain_is_rolling_seven_whole_days(settings: Settings, state: State) -> None:
@@ -140,8 +138,7 @@ def test_week_grain_is_rolling_seven_whole_days(settings: Settings, state: State
         for a, b in zip(cells[:-1], cells[1:], strict=True):
             assert date.fromisoformat(b["d"]) - date.fromisoformat(a["end"]) == timedelta(days=1)
         assert cells[-1]["end"] == yesterday.isoformat()
-        if row["key"] not in RATIOS:
-            assert row["total"] == pytest.approx(sum(c["v"] for c in cells))
+        assert row["total"] == pytest.approx(sum(c["v"] for c in cells))
         # The tiles cover the same seven days as the last block.
         assert len(row["spark"]) == 26
 
@@ -157,9 +154,8 @@ def test_insights_window_ends_yesterday(settings: Settings, state: State) -> Non
     assert ins["as_of"] == date.today().isoformat()
 
 
-def test_screen_hours_and_ratio(settings: Settings, state: State, tmp_path: Path) -> None:
-    """Screen time rolls up as hours, and the output-per-hour row divides the
-    summed tokens by the summed hours rather than averaging daily ratios."""
+def test_screen_hours(settings: Settings, state: State, tmp_path: Path) -> None:
+    """Display spans roll up as hours per local day."""
     today = date.today()
     log = tmp_path / "pmset.log"
     log.write_text(
@@ -175,12 +171,7 @@ def test_screen_hours_and_ratio(settings: Settings, state: State, tmp_path: Path
     )
     cfg = replace(_prepared(replace(settings, pmset_log=log), state), pmset_log=log)
     rows = TestClient(create_app(cfg)).get("/api/trends?grain=day&window=7").json()["rows"]
-    trends = {r["key"]: r for r in rows}
-    hours, ratio, tokens = (
-        trends["screen_hours"],
-        trends["tok_out_per_hour"],
-        trends["tokens_out"],
-    )
+    hours = {r["key"]: r for r in rows}["screen_hours"]
     # 2h and 6h of display-on, each on its own local day, both complete.
     assert round(hours["total"], 2) == 8.0
-    assert ratio["total"] == pytest.approx(tokens["total"] / hours["total"])
+    assert [round(c["v"], 2) for c in hours["cells"][-3:]] == [2.0, 6.0, 0.0]

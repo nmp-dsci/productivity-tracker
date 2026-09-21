@@ -14,7 +14,6 @@ import duckdb
 METRICS: list[tuple[str, str, str]] = [
     # key, label, note
     ("screen_hours", "Screen time", "display on, this Mac — as Screen Time counts it"),
-    ("tok_out_per_hour", "Output tokens / hour", "output tokens ÷ screen time"),
     ("claude_sessions", "Sessions started", "interactive Claude Code, by first prompt"),
     ("automated_sessions", "Automated sessions", "subagents, eval loops, claude -p"),
     ("prompts", "Prompts sent", "human turns"),
@@ -29,10 +28,6 @@ METRICS: list[tuple[str, str, str]] = [
     ("deploys", "Deploys", "App Runner + GitHub deployments"),
     ("projects", "Projects active", "repos with agent work or a commit"),
 ]
-
-# Metrics that are a quotient of two others: summing daily ratios is wrong, so
-# a window's value is sum(numerator) / sum(denominator).
-RATIOS: dict[str, tuple[str, str]] = {"tok_out_per_hour": ("tokens_out", "screen_hours")}
 
 _METRIC_SQL: dict[str, str] = {
     "screen_hours": "SELECT day, sum(seconds) / 3600 v FROM daily WHERE source='screen' AND kind='display_span' GROUP BY 1",
@@ -78,21 +73,11 @@ def _rows(
 
 
 def _series(con: duckdb.DuckDBPyConnection, key: str, start: date, end: date) -> dict[str, float]:
-    if key in RATIOS:
-        num_key, den_key = RATIOS[key]
-        num, den = _series(con, num_key, start, end), _series(con, den_key, start, end)
-        return {d: num.get(d, 0.0) / v for d, v in den.items() if v > 0}
     sql = f"SELECT day, v FROM ({_METRIC_SQL[key]}) WHERE day BETWEEN ? AND ?"
     return {str(r["day"]): float(r["v"] or 0) for r in _rows(con, sql, [start, end])}
 
 
 def _total(con: duckdb.DuckDBPyConnection, key: str, start: date, end: date) -> float:
-    """A window's value: a sum, except for a ratio, which divides the summed
-    numerator by the summed denominator."""
-    if key in RATIOS:
-        num_key, den_key = RATIOS[key]
-        den = _total(con, den_key, start, end)
-        return _total(con, num_key, start, end) / den if den > 0 else 0.0
     return sum(_series(con, key, start, end).values())
 
 
@@ -116,16 +101,8 @@ def _rolling(
 def _blocks(
     con: duckdb.DuckDBPyConnection, key: str, end: date, n: int, size: int = 7
 ) -> list[tuple[date, date, float]]:
-    """`_rolling` for one metric, dividing block sums for a ratio metric."""
+    """`_rolling` for one metric, over exactly the days those blocks cover."""
     start = end - timedelta(days=n * size - 1)
-    if key in RATIOS:
-        num_key, den_key = RATIOS[key]
-        num = _rolling(_series(con, num_key, start, end), end, n, size)
-        den = _rolling(_series(con, den_key, start, end), end, n, size)
-        return [
-            (a, b, (nv / dv if dv > 0 else 0.0))
-            for (a, b, nv), (_, _, dv) in zip(num, den, strict=True)
-        ]
     return _rolling(_series(con, key, start, end), end, n, size)
 
 

@@ -122,7 +122,7 @@ ecr_push, daily_cost. `lavish`: page_created, page_updated. `evals`: run.
 | D-08 | Trend periods (2026-09-21) | no partial periods: the week grain is rolling 7-day blocks ending on the last complete day, recomputed daily; today is drawn but never counted |
 | D-09 | Screen-time detail (2026-09-21) | one metric only — hours the display was on. No per-app hours, categories, websites, idle split, pickups or notification counts |
 | D-10 | Screen time in the demo (2026-09-21) | yes: a span is a start and a duration, an aggregate like every other metric |
-| D-11 | Screen-time placement (2026-09-21) | first tile and first strip, with the derived output-tokens-per-hour ratio directly after it |
+| D-11 | Screen-time placement (2026-09-21) | first tile and first strip; the derived output-tokens-per-hour ratio was built and then dropped — hours stand on their own |
 
 ## Risks and Open Questions
 

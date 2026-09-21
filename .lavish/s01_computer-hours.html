@@ -264,7 +264,7 @@
           <h1>Computer<br>hours</h1>
           <p class="lede">Every metric in the tracker so far counts <em>output</em> — prompts, tokens, commits, pages. None of them counts <em>time at the machine</em>. This page proposes how to capture it, from Screen Time's own data or from our own sampler, and what it would look like next to the rest.</p>
           <div class="flex" style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center">
-            <span class="tag yes">Built · 2026-09-21</span><span class="tag">D-07 pmset + knowledgeC backfill</span><span class="tag">D-10 in the demo</span><span class="tag">D-12 first + ratio</span>
+            <span class="tag yes">Built · 2026-09-21</span><span class="tag">D-07 pmset + knowledgeC backfill</span><span class="tag">D-10 in the demo</span><span class="tag">D-12 first strip</span>
           </div>
         </div>
       </div>
@@ -536,7 +536,7 @@
         <tbody>
           <tr><td class="id">D-07</td><td>pmset <strong>plus</strong> the one-off knowledgeC backfill of ~30 days</td><td>Both built. <code>pt collect</code> parses <code>pmset -g log</code> on every 5-minute tick and has already stored 7 days (61h 28m). <code>pt screen-backfill --days 30</code> is written and tested, and currently answers: <em>“cannot read knowledgeC.db … Grant Full Disk Access to this terminal”</em> — it runs the moment you grant it.</td></tr>
           <tr><td class="id">D-10</td><td>Yes — hours are an aggregate like any other metric</td><td>No redaction added: a span is a start and a duration, so demo mode passes it through untouched. <code>tests/test_privacy.py</code> still holds.</td></tr>
-          <tr><td class="id">D-12</td><td>First tile and first strip, ratio after it</td><td><code>METRIC_ORDER</code> now starts <code>screen_hours → tok_out_per_hour</code>, in both the tiles and the strips.</td></tr>
+          <tr><td class="id">D-12</td><td>First tile and first strip, ratio after it</td><td><code>METRIC_ORDER</code> now starts with <code>screen_hours</code>, in both the tiles and the strips. The output-tokens-per-hour ratio was built alongside it and then <strong>removed on review</strong> — hours stand on their own.</td></tr>
           <tr><td class="id">—</td><td>“do all phases”</td><td>P-1 parser, P-2 rollup, P-3 UI and P-4 the knowledgeC reader are all in. 32 pytest + 5 vitest green; ruff and mypy strict clean.</td></tr>
         </tbody>
       </table>
