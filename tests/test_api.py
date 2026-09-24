@@ -4,8 +4,9 @@ import hashlib
 import hmac
 import json
 from dataclasses import replace
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, date, datetime, time, timedelta
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import pytest
 from fastapi.testclient import TestClient
@@ -169,8 +170,17 @@ def test_screen_hours(settings: Settings, state: State, tmp_path: Path) -> None:
         "CREATE TABLE ZOBJECT (ZSTREAMNAME TEXT, ZVALUEINTEGER INT, ZSTARTDATE REAL, ZENDDATE REAL)"
     )
     mac = datetime(2001, 1, 1, tzinfo=UTC)
-    now = datetime.now(UTC)
-    two, one = now - timedelta(days=2), now - timedelta(days=1)
+    # Anchored at 09:00 *local*, not at "now minus N days": a span that starts
+    # at the current time of day runs into the next local day whenever the test
+    # happens to run late enough, and the part that lands on today is correctly
+    # dropped as an in-progress period — which made this assertion depend on
+    # the wall clock. 09:00 + 6h stays inside one local day at every offset.
+    zone = ZoneInfo(settings.timezone)
+    today = datetime.now(zone).date()
+    two, one = (
+        datetime.combine(today - timedelta(days=n), time(9), tzinfo=zone).astimezone(UTC)
+        for n in (2, 1)
+    )
     con.executemany(
         "INSERT INTO ZOBJECT VALUES ('/display/isBacklit', 1, ?, ?)",
         [
@@ -186,7 +196,7 @@ def test_screen_hours(settings: Settings, state: State, tmp_path: Path) -> None:
     build(cfg, cfg.rollups_dir)
     rows = TestClient(create_app(cfg)).get("/api/trends?grain=day&window=7").json()["rows"]
     hours = {r["key"]: r for r in rows}["screen_hours"]
-    # 2h and 6h, each on its own local day, both complete.
+    # 2h and 6h, each wholly inside its own complete local day.
     assert round(hours["total"], 2) == 8.0
 
 
