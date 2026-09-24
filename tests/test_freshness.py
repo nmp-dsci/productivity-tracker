@@ -4,6 +4,7 @@ import sqlite3
 from dataclasses import replace
 from datetime import UTC, date, datetime, timedelta, tzinfo
 from pathlib import Path
+from typing import Self
 
 import pytest
 from typer.testing import CliRunner
@@ -76,9 +77,10 @@ def test_last_days_uses_local_today_not_utc(
 
     class _Frozen(datetime):
         @classmethod
-        def now(cls, tz: tzinfo | None = None) -> datetime:
+        def now(cls, tz: tzinfo | None = None) -> Self:
             base = datetime(2026, 9, 23, 22, 0, tzinfo=UTC)  # 08:00 Sydney, 9-24
-            return base.astimezone(tz) if tz else base
+            moment = base.astimezone(tz) if tz else base
+            return cls.fromtimestamp(moment.timestamp(), tz=moment.tzinfo)
 
     monkeypatch.setattr(freshness, "datetime", _Frozen)
     LocalStore(settings.events_dir).append([_screen_event(date(2026, 9, 22))])
