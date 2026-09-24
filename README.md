@@ -113,9 +113,28 @@ while the Mac is locked). If the screen-time strip flatlines, check Full Disk
 Access before anything else. Apple keeps roughly **30 days** (measured
 2026-09-21: 29 days of `/display/isBacklit`), so the event store is the only
 record of anything older — which is why the backfill runs on every tick
-rather than once. Once Full Disk Access is granted, the launchd job re-runs
-`pt screen-backfill --days 3` on every tick so recent days keep Apple's
-reading.
+rather than once: the launchd job re-runs `pt screen-backfill --days 3` on
+every tick so recent days keep Apple's reading.
+
+**Full Disk Access is per-process, and the launchd job is a different process
+from your terminal.** Granting it to Terminal or iTerm lets *you* run
+`pt screen-backfill`; it does nothing for `com.nmp-dsci.pt-collect`, which
+keeps exiting 0 while logging `cannot read …/knowledgeC.db` and the metric
+quietly stops at the last day you backfilled by hand. Grant Full Disk Access
+to the binary launchd runs (`/bin/sh`, and if that is not enough the uv-managed
+interpreter that `readlink -f .venv/bin/python` prints), then confirm with
+`pt status` — not by reading the log.
+
+### Is it up to date?
+
+```bash
+uv run pt status
+```
+
+Prints the last day carrying an event for every source and kind, when the
+daily full refresh last ran, and whether Apple's Screen Time store is readable
+**from this process**. It exits non-zero when something needs a human, so it
+works from a timer as well as by hand.
 
 ## Configuration
 

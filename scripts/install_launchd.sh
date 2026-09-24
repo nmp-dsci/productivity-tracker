@@ -21,7 +21,7 @@ cat > "$PLIST" <<PL
   <key>Label</key><string>com.nmp-dsci.pt-collect</string>
   <key>ProgramArguments</key><array>
     <string>/bin/sh</string><string>-c</string>
-    <string>cd "$REPO" && "$UV" run pt collect && { "$UV" run pt screen-backfill --days 3 || true; } && "$UV" run pt rollup && { [ -z "\${PT_S3_BUCKET:-}" ] || "$UV" run pt sync push; } && { [ ! -f "$HOME/.env" ] || { set -a; . "$HOME/.env"; set +a; "$UV" run pt weekly --max-age-hours 24; }; }</string>
+    <string>cd "$REPO" &amp;&amp; "$UV" run pt collect &amp;&amp; { "$UV" run pt screen-backfill --days 3 || true; } &amp;&amp; "$UV" run pt rollup &amp;&amp; { [ -z "\${PT_S3_BUCKET:-}" ] || "$UV" run pt sync push; } &amp;&amp; { [ ! -f "$HOME/.env" ] || { set -a; . "$HOME/.env"; set +a; "$UV" run pt weekly --max-age-hours 24; }; }</string>
   </array>
   <key>StartInterval</key><integer>300</integer>
   <key>RunAtLoad</key><true/>
@@ -40,7 +40,7 @@ cat > "$REFRESH_PLIST" <<PL
   <key>Label</key><string>com.nmp-dsci.pt-refresh</string>
   <key>ProgramArguments</key><array>
     <string>/bin/sh</string><string>-c</string>
-    <string>cd "$REPO" && { [ ! -f "$HOME/.env" ] || { set -a; . "$HOME/.env"; set +a; }; } && "$UV" run pt refresh && { [ -z "\${PT_S3_BUCKET:-}" ] || "$UV" run pt sync push; }</string>
+    <string>cd "$REPO" &amp;&amp; { [ ! -f "$HOME/.env" ] || { set -a; . "$HOME/.env"; set +a; }; } &amp;&amp; "$UV" run pt refresh &amp;&amp; { [ -z "\${PT_S3_BUCKET:-}" ] || "$UV" run pt sync push; }</string>
   </array>
   <key>StartInterval</key><integer>1800</integer>
   <key>RunAtLoad</key><true/>
@@ -51,6 +51,14 @@ cat > "$REFRESH_PLIST" <<PL
   </dict>
 </dict></plist>
 PL
+# The commands above are shell, but they live inside XML: every `&&` has to be
+# written `&amp;&amp;`. launchd's own parser tolerates a raw `&`, so a malformed
+# plist still loads and runs — which is exactly why it goes unnoticed. Lint both
+# files here so a future edit that forgets the escaping fails loudly instead.
+for p in "$PLIST" "$REFRESH_PLIST"; do
+  plutil -lint "$p" >/dev/null || { echo "malformed plist: $p" >&2; exit 1; }
+done
+
 launchctl unload "$REFRESH_PLIST" 2>/dev/null || true
 launchctl load "$REFRESH_PLIST"
 launchctl unload "$PLIST" 2>/dev/null || true

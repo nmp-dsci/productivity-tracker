@@ -9,6 +9,7 @@ pt aws collect                           Cost Explorer + App Runner
 pt tag                                   tier-2 classifier over unknown sessions
 pt screen-backfill                       screen time history from knowledgeC.db
 pt refresh                               full re-read + rebuild, once per UTC day
+pt status                                how current the data behind the app is
 pt weekly                                draft the weekly narrative
 """
 
@@ -224,6 +225,28 @@ def refresh(
     state.set("last_full_refresh", today)
     state.save()
     typer.echo(f"refresh {today} (UTC): {total} new events in {time.time() - t0:.0f}s")
+
+
+@app.command()
+def status() -> None:
+    """How current is the data? Exits 1 when something needs a human.
+
+    Prints the last day carrying an event for every source and kind, when the
+    daily full refresh last ran, and whether Apple's Screen Time store is
+    actually readable from this process — the one input that fails silently,
+    because losing Full Disk Access makes the screen-time metric go quiet
+    while every scheduled job still exits 0."""
+    from pt.freshness import check
+    from pt.state import State
+
+    cfg = settings()
+    lines, problems = check(cfg, State(cfg.state_dir / "state.json"))
+    for line in lines:
+        typer.echo(line)
+    for problem in problems:
+        typer.secho(f"\nPROBLEM  {problem}", fg="red")
+    if problems:
+        raise typer.Exit(1)
 
 
 @app.command()
