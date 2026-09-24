@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import sqlite3
 from dataclasses import replace
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta, tzinfo
 from pathlib import Path
 
+import pytest
 from typer.testing import CliRunner
 
+from pt import freshness
 from pt.config import Settings
 from pt.freshness import check, knowledge_readable
 from pt.schema import Event, event_id
@@ -63,6 +65,26 @@ def test_fresh_screen_time_is_clean(settings: Settings, tmp_path: Path) -> None:
     lines, problems = check(cfg, state)
     assert problems == []
     assert lines[0].endswith("(today, UTC)")
+
+
+def test_last_days_uses_local_today_not_utc(
+    settings: Settings, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`day` is bucketed in settings.timezone (Sydney, UTC+10/+11), so lag must
+    be measured against local 'today', not UTC 'today' — otherwise up to 11
+    hours of every day undercounts staleness by a full day."""
+
+    class _Frozen(datetime):
+        @classmethod
+        def now(cls, tz: tzinfo | None = None) -> datetime:
+            base = datetime(2026, 9, 23, 22, 0, tzinfo=UTC)  # 08:00 Sydney, 9-24
+            return base.astimezone(tz) if tz else base
+
+    monkeypatch.setattr(freshness, "datetime", _Frozen)
+    LocalStore(settings.events_dir).append([_screen_event(date(2026, 9, 22))])
+    rows = freshness.last_days(settings)
+    apple = next(r for r in rows if r.kind == "display_span_apple")
+    assert apple.lag_days == 2
 
 
 def test_status_command_exits_nonzero_on_a_problem(settings: Settings, tmp_path: Path) -> None:

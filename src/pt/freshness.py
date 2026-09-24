@@ -14,6 +14,7 @@ from __future__ import annotations
 import sqlite3
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
+from zoneinfo import ZoneInfo
 
 from pt.config import Settings
 from pt.state import State
@@ -42,7 +43,7 @@ def last_days(settings: Settings) -> list[Row]:
         ).fetchall()
     finally:
         con.close()
-    today = datetime.now(UTC).date()
+    today = datetime.now(ZoneInfo(settings.timezone)).date()
     return [Row(s, k, d, (today - d).days) for s, k, d in rows if d is not None]
 
 
