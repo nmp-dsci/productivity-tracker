@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import httpx
+import pytest
 
 from pt.collectors import github
 from pt.collectors.aws import parse_eventbridge
@@ -70,7 +71,9 @@ def test_eventbridge_parser() -> None:
     )
 
 
-def test_backfill_deployments_survive_unsorted_order(monkeypatch, tmp_path: Path) -> None:
+def test_backfill_deployments_survive_unsorted_order(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     # The deployments endpoint is not requested with an explicit sort, so a
     # recent deployment can appear after an older one in the page. Backfill
     # must not stop at the first older item, or it would silently drop it.
