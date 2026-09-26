@@ -49,12 +49,68 @@ def _knowledge_db(path: Path) -> Path:
     return path
 
 
+@pytest.fixture(autouse=True)
+def _healthy_agents_and_refresh(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Pin the two checks that read the host: whether this laptop's LaunchAgents
+    happen to be loaded is not what any other test in this file is about."""
+    monkeypatch.setattr(freshness, "_launchctl_labels", lambda: set(freshness.AGENTS))
+
+
+def _fresh_state(settings: Settings) -> State:
+    state = State(settings.state_dir / "state.json")
+    state.set("last_full_refresh", datetime.now(UTC).date().isoformat())
+    return state
+
+
+def test_unloaded_agents_are_a_problem(
+    settings: Settings, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Both agents were once found silently unloaded, which stops every source
+    at once. Nothing reported it, so the check now does."""
+    monkeypatch.setattr(freshness, "_launchctl_labels", lambda: {"com.apple.something.else"})
+    cfg = replace(settings, knowledge_db=_knowledge_db(tmp_path / "knowledgeC.db"))
+    LocalStore(cfg.events_dir).append([_screen_event(cfg, _today(cfg))])
+    lines, problems = check(cfg, _fresh_state(cfg))
+    assert len(problems) == 1 and "2 of 2 LaunchAgents are not loaded" in problems[0]
+    assert any("MISSING" in ln for ln in lines)
+
+
+def test_launchctl_unavailable_is_not_a_problem(
+    settings: Settings, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Off macOS — in CI, or in the demo container — there are no agents to
+    check, and saying so is not the same as reporting a fault."""
+    monkeypatch.setattr(freshness, "_launchctl_labels", lambda: None)
+    cfg = replace(settings, knowledge_db=_knowledge_db(tmp_path / "knowledgeC.db"))
+    LocalStore(cfg.events_dir).append([_screen_event(cfg, _today(cfg))])
+    lines, problems = check(cfg, _fresh_state(cfg))
+    assert problems == []
+    assert any("not checked" in ln for ln in lines)
+
+
+def test_a_stalled_daily_refresh_is_a_problem(settings: Settings, tmp_path: Path) -> None:
+    """A stamp older than yesterday means the refresh timer is not running;
+    yesterday's is normal, because the timer only acts once the UTC date turns
+    and polls every 30 minutes."""
+    cfg = replace(settings, knowledge_db=_knowledge_db(tmp_path / "knowledgeC.db"))
+    LocalStore(cfg.events_dir).append([_screen_event(cfg, _today(cfg))])
+    state = State(cfg.state_dir / "state.json")
+    utc_today = datetime.now(UTC).date()
+
+    state.set("last_full_refresh", (utc_today - timedelta(days=1)).isoformat())
+    assert check(cfg, state)[1] == []
+
+    state.set("last_full_refresh", (utc_today - timedelta(days=2)).isoformat())
+    _, problems = check(cfg, state)
+    assert len(problems) == 1 and "pt-refresh LaunchAgent is not running" in problems[0]
+
+
 def test_unreadable_knowledge_db_is_a_problem(settings: Settings, tmp_path: Path) -> None:
     """Losing Full Disk Access is the one failure every scheduled job survives
     with exit 0, so the check has to call it out by itself."""
     cfg = replace(settings, knowledge_db=tmp_path / "nope" / "knowledgeC.db")
     LocalStore(cfg.events_dir).append([_screen_event(cfg, _today(cfg))])
-    _, problems = check(cfg, State(cfg.state_dir / "state.json"))
+    _, problems = check(cfg, _fresh_state(cfg))
     assert len(problems) == 1 and "Full Disk Access" in problems[0]
 
 
@@ -64,7 +120,7 @@ def test_stale_screen_time_is_a_problem_even_when_readable(
     """A readable store with nothing recent means the backfill is not running."""
     cfg = replace(settings, knowledge_db=_knowledge_db(tmp_path / "knowledgeC.db"))
     LocalStore(cfg.events_dir).append([_screen_event(cfg, _today(cfg) - timedelta(days=4))])
-    lines, problems = check(cfg, State(cfg.state_dir / "state.json"))
+    lines, problems = check(cfg, _fresh_state(cfg))
     assert knowledge_readable(cfg) is None
     assert len(problems) == 1 and "4 days behind" in problems[0]
     assert any("display_span_apple" in ln for ln in lines)

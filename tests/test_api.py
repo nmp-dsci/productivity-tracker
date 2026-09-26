@@ -19,6 +19,13 @@ from pt.store.local import LocalStore
 from pt.store.rollup import build
 
 
+def _local_today(settings: Settings) -> date:
+    """Today in the configured zone — what the API means by "today", and the
+    zone the `day` buckets are cut in. Not `date.today()`, which is the host's
+    and disagrees with both for part of every day on a non-Sydney machine."""
+    return datetime.now(ZoneInfo(settings.timezone)).date()
+
+
 def _prepared(settings: Settings, state: State) -> Settings:
     store = LocalStore(settings.events_dir)
     for c in registry().values():
@@ -114,10 +121,10 @@ def test_in_progress_periods_are_flagged_and_excluded(settings: Settings, state:
     client = TestClient(create_app(cfg))
 
     day = client.get("/api/trends?grain=day&window=30").json()
-    assert day["complete_through"] == (date.today() - timedelta(days=1)).isoformat()
+    assert day["complete_through"] == (_local_today(settings) - timedelta(days=1)).isoformat()
     for row in day["rows"]:
         cells = row["cells"]
-        assert [c["d"] for c in cells if not c["done"]] == [date.today().isoformat()]
+        assert [c["d"] for c in cells if not c["done"]] == [_local_today(settings).isoformat()]
         assert row["periods"] == len(cells) - 1
         assert row["total"] == pytest.approx(sum(c["v"] for c in cells if c["done"]))
         # The sparkline caption promises 26 rolling blocks regardless of grain.
@@ -129,7 +136,7 @@ def test_week_grain_is_rolling_seven_whole_days(settings: Settings, state: State
     daily — never a calendar week that is one day old on a Monday."""
     client = TestClient(create_app(_prepared(settings, state)))
     week = client.get("/api/trends?grain=week&window=26").json()
-    yesterday = date.today() - timedelta(days=1)
+    yesterday = _local_today(settings) - timedelta(days=1)
     assert week["complete_through"] == yesterday.isoformat()
     for row in week["rows"]:
         cells = row["cells"]
@@ -151,10 +158,32 @@ def test_insights_window_ends_yesterday(settings: Settings, state: State) -> Non
     window stops at the last complete day."""
     cfg = _prepared(settings, state)
     ins = TestClient(create_app(cfg)).get("/api/insights").json()
-    assert ins["end"] == (date.today() - timedelta(days=1)).isoformat()
-    assert ins["start"] == (date.today() - timedelta(days=7)).isoformat()
-    assert ins["prior_end"] == (date.today() - timedelta(days=8)).isoformat()
-    assert ins["as_of"] == date.today().isoformat()
+    assert ins["end"] == (_local_today(settings) - timedelta(days=1)).isoformat()
+    assert ins["start"] == (_local_today(settings) - timedelta(days=7)).isoformat()
+    assert ins["prior_end"] == (_local_today(settings) - timedelta(days=8)).isoformat()
+    assert ins["as_of"] == _local_today(settings).isoformat()
+
+
+def test_today_comes_from_the_configured_zone_not_the_host(
+    settings: Settings, state: State
+) -> None:
+    """The demo container runs with a UTC host clock and PT_TZ=Australia/Sydney.
+    If "today" came from the host, the last complete local day would be marked
+    in progress and dropped from every total for the ten-odd hours a day the two
+    zones sit on different dates. Pinned with two zones 24 hours apart, so this
+    fails on a host clock wherever the suite runs."""
+    cfg = _prepared(settings, state)
+    seen = {}
+    for zone in ("Pacific/Kiritimati", "Pacific/Niue"):  # UTC+14 and UTC-11
+        client = TestClient(create_app(replace(cfg, timezone=zone)))
+        expected = datetime.now(ZoneInfo(zone)).date()
+        assert client.get("/api/insights").json()["as_of"] == expected.isoformat()
+        trends = client.get("/api/trends?grain=day&window=7").json()
+        assert trends["complete_through"] == (expected - timedelta(days=1)).isoformat()
+        seen[zone] = expected
+    # The two zones really are on different dates, so the assertions above
+    # cannot both have passed by coincidence with the host's date.
+    assert seen["Pacific/Kiritimati"] != seen["Pacific/Niue"]
 
 
 def test_screen_hours(settings: Settings, state: State, tmp_path: Path) -> None:
@@ -209,7 +238,10 @@ def test_screen_hours_come_only_from_knowledgec(
     from pt.collectors.screen import KIND, KIND_BACKFILL
     from pt.schema import Event, event_id
 
-    day, other = date.today() - timedelta(days=2), date.today() - timedelta(days=3)
+    day, other = (
+        _local_today(settings) - timedelta(days=2),
+        _local_today(settings) - timedelta(days=3),
+    )
     cfg = _prepared(settings, state)
     LocalStore(cfg.events_dir).append(
         [

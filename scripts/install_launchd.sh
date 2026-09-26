@@ -59,9 +59,32 @@ for p in "$PLIST" "$REFRESH_PLIST"; do
   plutil -lint "$p" >/dev/null || { echo "malformed plist: $p" >&2; exit 1; }
 done
 
-launchctl unload "$REFRESH_PLIST" 2>/dev/null || true
-launchctl load "$REFRESH_PLIST"
-launchctl unload "$PLIST" 2>/dev/null || true
-launchctl load "$PLIST"
+# Register with the modern domain API. `launchctl load` is deprecated and does
+# not reliably keep a job registered in the GUI domain — both agents were found
+# silently unloaded two days after a `load`, with every source gone stale and
+# nothing reporting it. `bootstrap` plus an explicit `enable` is the supported
+# path, and `enable` also clears a label that was disabled by a previous
+# `launchctl disable` (that flag is persistent and survives reinstalling).
+DOMAIN="gui/$(id -u)"
+for p in "$PLIST" "$REFRESH_PLIST"; do
+  label="$(basename "$p" .plist)"
+  launchctl bootout "$DOMAIN/$label" 2>/dev/null || true
+  launchctl enable "$DOMAIN/$label"
+  launchctl bootstrap "$DOMAIN" "$p"
+done
+
+# Registering is not the same as running, so confirm rather than assume.
+failed=0
+for label in "$(basename "$PLIST" .plist)" "$(basename "$REFRESH_PLIST" .plist)"; do
+  if launchctl print "$DOMAIN/$label" >/dev/null 2>&1; then
+    echo "loaded   $label"
+  else
+    echo "FAILED to load $label" >&2
+    failed=1
+  fi
+done
+[ "$failed" -eq 0 ] || exit 1
+
 echo "installed $PLIST (every 5 min; log: ~/.pt/collect.log)"
 echo "installed $REFRESH_PLIST (checks every 30 min, full refresh once per UTC day; log: ~/.pt/refresh.log)"
+echo "check it any time with: uv run pt status"

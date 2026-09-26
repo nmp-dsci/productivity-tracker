@@ -9,9 +9,10 @@ from __future__ import annotations
 
 import json
 import time
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from pt.api import queries as q
 from pt.config import Settings
@@ -65,7 +66,9 @@ def run(
         data = q.overview(con, start)
         out = settings.data_dir / "narratives" / f"{start.isoformat()}.md"
     else:
-        end = date.today()
+        # The configured zone, matching the day buckets in the rollups — see
+        # the note on `today()` in pt.api.app.
+        end = datetime.now(ZoneInfo(settings.timezone)).date()
         data = q.window_summary(con, end - timedelta(days=6), end)
         out = settings.data_dir / "narratives" / f"rolling-{end.isoformat()}.md"
     con.close()
