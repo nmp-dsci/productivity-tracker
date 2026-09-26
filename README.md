@@ -131,10 +131,25 @@ interpreter that `readlink -f .venv/bin/python` prints), then confirm with
 uv run pt status
 ```
 
-Prints the last day carrying an event for every source and kind, when the
-daily full refresh last ran, and whether Apple's Screen Time store is readable
-**from this process**. It exits non-zero when something needs a human, so it
-works from a timer as well as by hand.
+The single answer to "is this thing still working". It prints the last day
+carrying an event for every source and kind, when the daily full refresh last
+ran, whether both LaunchAgents are actually loaded, and whether Apple's Screen
+Time store is readable **from this process**. It exits non-zero when something
+needs a human, so it works from a timer as well as by hand.
+
+It reports a problem when any of these is true, each of which has actually
+happened:
+
+| Symptom | What it means |
+|---|---|
+| a LaunchAgent is not loaded | nothing is collecting at all — re-run `scripts/install_launchd.sh` |
+| the full refresh stamp is older than yesterday | the `pt-refresh` agent is not firing (yesterday's stamp is normal for the first half-hour of a UTC day) |
+| screen time more than a day behind | the backfill is not reaching `knowledgeC.db`, almost always Full Disk Access |
+
+Being registered is not the same as running: on 2026-09-24 both agents were
+found unloaded two days after a successful `launchctl load`, with every source
+silently stale. The installer now uses `launchctl bootstrap` and verifies each
+label afterwards, and `pt status` checks the agents rather than trusting them.
 
 ## Configuration
 

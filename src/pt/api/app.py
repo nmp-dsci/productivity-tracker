@@ -12,6 +12,7 @@ import json
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import duckdb
 from fastapi import FastAPI, HTTPException, Query, Request
@@ -59,7 +60,14 @@ def create_app(cfg: Settings | None = None) -> FastAPI:
     app.state.settings = cfg
 
     def today() -> date:
-        return datetime.now(UTC).astimezone().date()
+        # In the configured zone, not the host's: every `day` in the rollups is
+        # bucketed with `timezone($tz, ts)`, so a "today" taken from the machine
+        # clock disagrees with the data whenever the two zones are on different
+        # dates — which is most of the day in the demo container, where the host
+        # is UTC and PT_TZ is Australia/Sydney. The last complete local day
+        # would then be treated as still in progress and dropped from every
+        # total, and the current local day would fall outside the window.
+        return datetime.now(ZoneInfo(cfg.timezone)).date()
 
     def db() -> duckdb.DuckDBPyConnection:
         if not (cfg.rollups_dir / "daily.parquet").exists():
